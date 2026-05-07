@@ -4,7 +4,9 @@
 > 项目根目录：`seedance-studio/`  
 > 开发语言：Python 3.12 + PyQt6  
 > **验收标准见 `testing_rules.md` 第二章，AI 标记 `[x]` 前必须逐条检查。**  
-> **Version 1.0 Milestone: P0~P9**
+> **Version 1.0 Milestone: P0~P9**  
+> **Git 工作分支**：`main`（稳定发布）← `dev`（日常开发）← `feature/*`（功能分支）。详见 `plan.md` 第十四章。  
+> **当前活跃**：`dev` 分支 — P9 开发
 
 ---
 

@@ -707,3 +707,76 @@ toast_requested = pyqtSignal(str, str, str)  # type, title, message
 event_bus.toast_requested.emit("success", "任务创建成功", f"任务 ID: {task_id[:16]}...")
 event_bus.toast_requested.emit("error", "API 调用失败", str(e))
 ```
+
+---
+
+## 十九、Git 提交规范与分支策略（Phase 9 新增）
+
+### 19.1 分支模型
+
+```
+main          ← 稳定发布（只接受 dev 的 PR 合并）
+  └── dev     ← 日常开发集成
+        └── feature/*  ← 功能分支（开发完合并到 dev 后删除）
+```
+
+**当前活跃分支**: `dev`（P9 开发进行中）
+
+### 19.2 提交流程
+
+1. 从 `dev` 创建 feature 分支：`git checkout -b feature/xxx dev`
+2. 在 feature 分支上开发，通过强制测试后提交
+3. 推送分支并在 GitHub 创建 PR 合并到 `dev`
+4. `dev` 稳定后，PR 合并到 `main`，打 tag
+
+### 19.3 Commit Message 规范
+
+遵循 [Conventional Commits](https://www.conventionalcommits.org/) 格式：
+
+```
+<type>(<scope>): <简短描述>
+
+<详细说明（可选）>
+```
+
+**类型（type）**：
+
+| Type | 用途 | 示例 |
+|------|------|------|
+| `feat` | 新功能 | `feat(ui): add custom title bar` |
+| `fix` | Bug 修复 | `fix(api): correct content array format` |
+| `refactor` | 重构 | `refactor(themes): extract MarathonColors class` |
+| `docs` | 文档 | `docs: add git branching guide` |
+| `test` | 测试 | `test(builders): add duration bounds test` |
+| `style` | 格式/样式 | `style(marathon): update sidebar QSS` |
+| `chore` | 构建/工具 | `chore(pack): update pyinstaller spec` |
+
+**范围（scope）**：`domain`, `application`, `infrastructure`, `core`, `ui`, `themes`, `tests`, `docs`
+
+**范例**：
+
+```
+feat(ui): implement frameless window with custom title bar
+
+Add TitleBar widget with system button controls and drag-to-move.
+Suppress system title bar via FramelessWindowHint.
+
+Closes #12
+```
+
+```
+fix(api): use correct nested response structure
+
+parse content.video_url instead of top-level video_url,
+add error.code/message and usage.completion_tokens extraction.
+
+(fixes pitfall #10)
+```
+
+### 19.4 版本发布流程
+
+1. `dev` 分支通过全部测试
+2. 创建 PR：`dev` → `main`
+3. Code review 通过后 squash merge
+4. 在 `main` 上打 tag：`git tag -a v1.0.0 -m "Release v1.0.0"`
+5. 推送 tag：`git push origin v1.0.0`
