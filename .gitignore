@@ -1,0 +1,24 @@
+# PyInstaller builds
+build/
+dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# Sensitive config (contains encrypted API Key)
+config.json
+config.json.bak
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
