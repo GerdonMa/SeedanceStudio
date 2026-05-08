@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QStackedWidget, QPushButton, QLabel, QApplication,
 )
-from PyQt6.QtCore import Qt, QEvent, QPoint
+from PyQt6.QtCore import Qt, QEvent, QPoint, QSize
 from PyQt6.QtGui import QShortcut, QKeySequence
 
 if sys.platform == "win32":
@@ -24,6 +24,11 @@ from ui.pages.page_settings import SettingsPage
 from ui.pages.page_task_list import TaskListPage
 from ui.title_bar import TitleBar
 from ui.widgets.toast_widget import ToastWidget
+from ui.widgets.about_dialog import show_about_dialog
+from ui.widgets.sidebar_icons import (
+    create_video_icon, create_settings_icon,
+    create_task_list_icon, create_about_icon,
+)
 from themes import ThemeRegistry
 from themes.theme_context import ThemeContext
 from themes.theme_loader import ThemeLoader
@@ -120,17 +125,25 @@ class MainWindow(QMainWindow):
         self._nav_buttons = []
 
         nav_items = [
-            ("📹 创建视频", 0),
-            ("⚙ 设置", 1),
-            ("📋 任务列表", 2),
+            ("创建视频", 0, create_video_icon()),
+            ("设置",   1, create_settings_icon()),
+            ("任务列表", 2, create_task_list_icon()),
         ]
 
-        for text, index in nav_items:
+        for text, index, icon in nav_items:
             btn = QPushButton(text)
+            btn.setIcon(icon)
+            btn.setIconSize(QSize(16, 16))
             btn.setCheckable(True)
             btn.clicked.connect(lambda checked, i=index: self._switch_page(i))
             self._nav_buttons.append(btn)
             layout.addWidget(btn)
+
+        about_btn = QPushButton("关于")
+        about_btn.setIcon(create_about_icon())
+        about_btn.setIconSize(QSize(16, 16))
+        about_btn.clicked.connect(lambda: show_about_dialog(self))
+        layout.addWidget(about_btn)
 
         layout.addStretch()
 

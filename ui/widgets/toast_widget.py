@@ -12,19 +12,13 @@ from PyQt6.QtGui import QFont
 
 from core.di_container import Container
 from themes.theme_context import ThemeContext
+from ui.widgets.sidebar_icons import create_toast_icon
 
 _TOAST_COLORS_FALLBACK = {
     "success": "#00FF88",
     "warning": "#E5FF00",
     "error":   "#FF3333",
     "info":    "#C8FF00",
-}
-
-_TOAST_ICONS = {
-    "success": "✓",
-    "warning": "⚠",
-    "error":   "✕",
-    "info":    "ℹ",
 }
 
 _MAX_TOASTS = 5
@@ -55,9 +49,10 @@ class ToastItem(QFrame):
         bar.setStyleSheet(f"background-color: {color}; border-radius: 1px; border: none;")
         layout.addWidget(bar)
 
-        icon_label = QLabel(_TOAST_ICONS.get(type_, "ℹ"))
-        icon_label.setFixedWidth(20)
-        icon_label.setStyleSheet(f"color: {color}; font-size: 15px; font-weight: bold; background: transparent;")
+        icon_label = QLabel()
+        icon_label.setFixedSize(20, 20)
+        icon_label.setPixmap(create_toast_icon(type_, color))
+        icon_label.setStyleSheet("background: transparent;")
         layout.addWidget(icon_label)
 
         text_layout = QVBoxLayout()
