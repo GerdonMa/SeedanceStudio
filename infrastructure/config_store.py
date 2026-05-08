@@ -56,6 +56,15 @@ class ConfigStore:
             
             with open(self._config_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
+                # 合并默认值：新增的偏好键自动回退到默认值
+                defaults = self._get_defaults()
+                changed = False
+                for key, default_val in defaults.items():
+                    if key not in data:
+                        data[key] = default_val
+                        changed = True
+                if changed:
+                    self._save_to_file(self._config_path, data)
                 self._logger.info("Config loaded successfully")
                 return data
         except json.JSONDecodeError as e:
@@ -71,6 +80,11 @@ class ConfigStore:
         try:
             with open(backup_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
+                # 合并默认值
+                defaults = self._get_defaults()
+                for key, default_val in defaults.items():
+                    if key not in data:
+                        data[key] = default_val
                 self._logger.info("Config restored from backup")
                 # 恢复成功后立即写回主配置文件
                 self._save_to_file(self._config_path, data)
@@ -105,7 +119,9 @@ class ConfigStore:
             "window_height": 800,
             "window_x": -1,  # -1 表示居中
             "window_y": -1,
-            "ui_theme": "default_light"
+            "ui_theme": "default_light",
+            "sidebar_collapsed": False,
+            "window_maximized": False
         }
     
     def _save_to_file(self, path: Path, data: dict) -> None:

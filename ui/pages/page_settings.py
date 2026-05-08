@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt
 
 from core.di_container import Container
 from themes import ThemeRegistry
+from themes.theme_loader import ThemeLoader
 
 
 class SettingsPage(QWidget):
@@ -73,6 +74,15 @@ class SettingsPage(QWidget):
         appearance_layout.addStretch()
         layout.addLayout(appearance_layout)
         
+        # 导入主题按钮
+        import_layout = QHBoxLayout()
+        import_layout.addWidget(QLabel("主题包:"))
+        self._import_theme_btn = QPushButton("导入主题")
+        self._import_theme_btn.clicked.connect(self._on_import_theme)
+        import_layout.addWidget(self._import_theme_btn)
+        import_layout.addStretch()
+        layout.addLayout(import_layout)
+
         layout.addSpacing(10)
 
         # 按钮
@@ -168,3 +178,32 @@ class SettingsPage(QWidget):
             self._download_path_input.setText(path)
             if self._container is not None:
                 self._container.settings_usecase.save_preference("download_path", path)
+
+    def _on_import_theme(self):
+        """导入主题包"""
+        path, _ = QFileDialog.getOpenFileName(
+            self, "导入主题包", "",
+            "主题包 (*.zip);;主题文件 (*.py)"
+        )
+        if not path:
+            return
+
+        loader = ThemeLoader(self._container.logger)
+        theme = loader.import_zip(path) if path.endswith(".zip") else loader.install_py(path)
+        if theme is not None:
+            # 刷新主题下拉框
+            self._theme_combo.blockSignals(True)
+            self._theme_combo.clear()
+            for t in ThemeRegistry.list_all():
+                self._theme_combo.addItem(t.name, t.id)
+            idx = self._theme_combo.findData(theme.id)
+            if idx >= 0:
+                self._theme_combo.setCurrentIndex(idx)
+            self._theme_combo.blockSignals(False)
+
+            QMessageBox.information(self, "导入成功", f"主题 [{theme.name}] 安装成功。")
+            self._container.event_bus.toast_requested.emit(
+                "success", "主题已导入", f"主题 [{theme.name}] 安装成功。"
+            )
+        else:
+            QMessageBox.warning(self, "导入失败", "主题导入失败，请检查文件格式。")

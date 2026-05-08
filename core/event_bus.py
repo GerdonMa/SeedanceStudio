@@ -32,6 +32,9 @@ class EventBus(QObject):
 
     # 主题相关事件
     theme_changed = pyqtSignal(str)  # theme_id (e.g. "default_light", "marathon")
+
+    # 通知/Toast 事件 (P9)
+    toast_requested = pyqtSignal(str, str, str)  # type, title, message
     
     def __new__(cls):
         """单例模式"""

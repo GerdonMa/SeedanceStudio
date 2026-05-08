@@ -21,12 +21,14 @@ class TaskCardWidget(QWidget):
         layout.setSpacing(4)
 
         self._cancel_btn = QPushButton("取消")
-        self._cancel_btn.setFixedWidth(50)
+        self._cancel_btn.setMinimumHeight(34)
+        self._cancel_btn.setProperty("role", "ghost")
         self._cancel_btn.clicked.connect(on_cancel)
         layout.addWidget(self._cancel_btn)
 
         self._delete_btn = QPushButton("删除")
-        self._delete_btn.setFixedWidth(50)
+        self._delete_btn.setMinimumHeight(34)
+        self._delete_btn.setProperty("role", "ghost")
         self._delete_btn.clicked.connect(on_delete)
         layout.addWidget(self._delete_btn)
 

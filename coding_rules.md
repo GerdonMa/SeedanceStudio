@@ -225,6 +225,11 @@ AI 在开始编写代码前，必须确认以下几点：
 | 自造偏好 key 名 | 与 plan.md 5.1 节表格不一致会导致恢复失败 |
 | 在 `application` 层直接 `import sqlite3` | 应通过 `ITaskRepository` 接口访问 |
 | 单个文件超过 500 行 | 拆分为多个模块 |
+| `QPropertyAnimation` 作为局部变量 | 方法返回后 GC 回收，动画中断 |
+| `changeEvent`/`closeEvent` 不调用 `super()` | 破坏 Qt 内部状态机，导致崩溃 |
+| `QObject` 子类在 `QApplication` 之前创建 | 缺少 Qt 上下文，导致不可预知行为 |
+| 无边框窗口不实现 `nativeEvent` 边缘缩放 | 用户无法拉扯窗口调整大小 |
+| 标题栏按钮使用任意 Unicode 符号 | 字体不兼容时显示乱码/空白方块 |
 
 ---
 
@@ -545,6 +550,17 @@ class AssetPickerWidget(QWidget):
 | 26 | 内联 `setStyleSheet()` 优先级高于 `app.setStyleSheet()`，切换主题后部分组件颜色不变 | `ui/pages/page_create.py:170-186`, `ui/main_window.py:75` | 凡颜色/字体/背景相关的内联 styleSheet 必须删除，改用 objectName + 主题 QSS 控制。仅布局类属性（padding、margin、min-width）可保留内联 |
 | 27 | 使用 `FramelessWindowHint` 后 `QMainWindow` 的 `centralWidget` 布局区域会收缩，部分子部件不可见 | `ui/main_window.py` | 使用 Frameless 窗口时，必须将 `centralWidget` 的 `layout.setContentsMargins(0, title_bar_height, 0, 0)` 偏移到标题栏下方，同时确保标题栏不在 centralWidget 布局内（作为独立 overlay widget） |
 | 28 | `QShortcut` 在 Windows 上 `setAutoRepeat(True)` 时按住快捷键会重复触发`Ctrl+1`等页面切换动作 | `ui/main_window.py` | 页面切换类快捷键必须 `setAutoRepeat(False)`；仅连续操作（如微调值）才允许 auto-repeat |
+| 29 | `QPropertyAnimation` / `QVariantAnimation` 对象作为方法局部变量，方法返回后被 Python GC 回收导致动画中断（侧边栏折叠、提示词助手展开/关闭、启动画面淡出均受影响） | `ui/main_window.py:236-266`, `ui/pages/page_create.py:260-273`, `ui/splash_screen.py:86-92` | 所有 `QPropertyAnimation` / `QVariantAnimation` / `QTimer` 等异步对象必须保存为**实例属性**（`self._anim = anim`），禁止作为局部变量。方法返回前 GC 即回收，动画立即停止。 |
+| 30 | 重写 `QMainWindow.changeEvent()` 未调用 `super().changeEvent(event)` 导致窗口状态机异常，最大化/还原时崩溃 | `ui/main_window.py:355-358` | 任何 `changeEvent` / `closeEvent` / `resizeEvent` 等 Qt 事件重写，**首行必须调用 `super().xxx(event)`**。QMainWindow 依赖 `changeEvent` 处理 `WindowStateChange`，缺少 super 调用会破坏内部状态。 |
+| 31 | `QApplication` 在 `Container`（含 `EventBus`（QObject 子类））之前创建，QObject 缺乏 Qt 上下文导致不可预知崩溃/行为异常 | `main.py:29-38` | **`QApplication(sys.argv)` 必须是第一个被创建的 Qt 对象**。所有 QObject 子类（EventBus、QThread 等）必须在 QApplication 之后实例化。`main.py` 初始化顺序：`QApplication` → `SplashScreen` → `Container` → `MainWindow`。 |
+| 32 | 使用 `FramelessWindowHint` 后窗口边缘无法拖拽缩放（系统不再处理边框 resize） | `ui/main_window.py` | Windows 上通过 `nativeEvent` 拦截 `WM_NCHITTEST` (0x0084) 手动返回边缘 hit code（`HTTOP=12`, `HTBOTTOM=15`, `HTLEFT=10`, `HTRIGHT=11` 及四角 `13/14/16/17`）。标题栏区域返回 `HTCAPTION=2` 可同时获得 Aero Snap + 双击最大化。`border=6` px 为舒适拖拽宽度。仅 `use_frameless=True` 且 `sys.platform == 'win32'` 时启用，外加 try/except 保护。 |
+| 33 | 标题栏按钮使用 Unicode 特殊符号（`─`/`✕`/`❐`），在不同字体/Windows 版本下渲染宽高不一致，显示为乱码或空白方块 | `ui/title_bar.py:48-64` | 使用最通用的 Unicode 符号并显式指定字体：`—`(U+2014) 最小化、`□`(U+25A1) 最大化、`×`(U+00D7) 关闭。每个按钮设置 `setStyleSheet("font-family: 'Segoe UI'; font-size: Npx;")`，不同按钮可用不同字号微调视觉对齐。 |
+34 | `nativeEvent` 中对标题栏区域返回 `HTCAPTION(2)` 导致 Windows 接管该区域的鼠标事件和 Qt 渲染，TitleBar 按钮（最小化/最大化/关闭）无法响应点击且外观异常 | `ui/main_window.py:333-381` | 标题栏区域不返回任何 hit code（返回 `False, 0`），交由 `TitleBar` 自身的 `mousePressEvent`/`mouseMoveEvent` 处理拖拽和双击最大化。`nativeEvent` 仅对窗口四边四角返回 resize hit code。 |
+35 | Marathon QSS 中 `QWidget#titleBar QPushButton` 设置了 `min-height: 36px; max-height: 36px; font-size: 14px;`，覆盖了代码中 `setFixedSize(36, 28)` 和 `setFont(QFont("Segoe UI", 11/13))`，导致按钮被拉伸变形、字体大小异常 | `themes/builtin/marathon/fx.py:284-288` | TitleBar 按钮的 QSS 只设置 `background/border/color`，不覆盖尺寸（`min/max-height`、`min/max-width`）和 `font-size`，让代码中的 `setFixedSize` 和 `setFont` 生效。 |
+| 36 | UI 层通过 `self._container.task_repo` / `self._container.config` 直接访问基础设施层对象 | `ui/pages/page_task_list.py:96,196`、`ui/widgets/video_player_widget.py:92` | `ui -> infrastructure` 是禁用依赖方向。应通过 `self._container.task_usecase` / `settings_usecase` 间接访问。 |
+| 37 | 同一文件内重复 import 同一模块 | `ui/widgets/media_upload_widget.py:23,25`、`ui/main_window.py:28,30` | 合并重复的 import 语句，每个模块只 import 一次。 |
+| 38 | import 了未使用的类 | `ui/main_window.py:15` | `QPixmap` 被 import 但全文件未使用，删除未使用的 import。 |
+| 39 | PyInstaller 打包时直接覆盖 `dist/` 中的旧版本 exe，未加版本号后缀，导致历史发布版本丢失 | `seedance.spec:58` | `seedance.spec` 中 `name` 字段必须包含版本号，如 `name='SeedanceStudio-v1.1.0'`。每次发布时更新版本号，旧 exe 不会被覆盖。 |
 
 > **重要**：当 AI 发现新的错误时，必须在行 15 的记录表末尾追加一条新记录，确保后续 AI 会话不再重犯。修正已有错误的 commit 消息中标注 `(fixes pitfall #N)`。
 
@@ -603,6 +619,67 @@ def apply_glow(widget, color="#00E5FF", radius=12) -> object: ...
 - [ ] 在三种分辨率（900×600 / 1200×800 / 1920×1080）下测试
 - [ ] 在默认浅色主题和 Marathon 主题之间切换，验证回退正常
 
+### 16.5 主题变量系统使用规范（Phase 9 新增）
+
+**ThemeContext 使用**：
+
+```python
+# 正确：使用 ThemeContext 获取颜色
+from themes.theme_context import ThemeContext
+
+color = ThemeContext.get_color("primary", "#00E5FF")
+widget.setStyleSheet(f"background-color: {color};")
+
+# 错误：硬编码颜色 — 禁止
+widget.setStyleSheet("background-color: #00E5FF;")
+```
+
+**使用场景**：
+- ✅ 必须动态计算的颜色（Toast类型、媒体类型颜色等）
+- ✅ 需要跟随主题变化的颜色
+
+**不使用场景**：
+- ❌ 静态样式（应在主题QSS中定义）
+- ❌ 不随主题变化的颜色
+
+**颜色变量命名规范**：`bg_base`, `bg_surface`, `bg_overlay`, `bg_raised`, `primary`, `danger`, `warning`, `success`, `info`, `text_primary`, `text_secondary`, `text_tertiary`, `border_subtle`, `border_default`, `border_focus`, `toast_success`, `toast_warning`, `toast_error`, `toast_info`, `media_image`, `media_video`, `media_audio`。
+
+### 16.6 组件主题切换钩子规范（Phase 9 新增）
+
+**何时需要 `on_theme_changed()`**：
+- 组件使用了 `ThemeContext.get_color()` 动态获取颜色
+- 组件有运行时创建的子控件需更新样式
+
+**何时不需要**：
+- 组件完全使用QSS定义样式
+- 组件在初始化后不再改变
+
+**实现模板**：
+```python
+def on_theme_changed(self):
+    """主题切换时调用，重新读取主题颜色"""
+    from themes.theme_context import ThemeContext
+    color = ThemeContext.get_color("primary")
+    self._some_widget.setStyleSheet(f"color: {color};")
+```
+
+**示例**：`MediaUploadWidget` 需要（已上传媒体项需更新颜色），`ToastWidget` 不需要（新Toast自动用新主题），`CreatePage` 不需要（完全用QSS）。
+
+### 16.7 禁止硬编码样式规范（Phase 9 强化）
+
+**禁止**：直接在组件中调用 `setStyleSheet()` 硬编码颜色/字体/背景等非布局样式。
+
+**正确做法**：
+1. 使用 `objectName` 标记组件 → 样式由主题QSS统一管理
+2. 必须动态计算时使用 `ThemeContext.get_color()`
+
+**例外**（允许使用 setStyleSheet）：Toast颜色条（按类型变化）、媒体类型标签（按类型变化）、进度条（按进度变化）。
+
+**验证命令**：
+```bash
+grep -r "setStyleSheet" ui/ | grep -v "ThemeContext" | wc -l  # 预期 < 10
+```
+
 ---
 
 ## 十七、无边框窗口开发规范（Phase 9 新增）
@@ -620,10 +697,10 @@ class MainWindow(QMainWindow):
 ```
 
 使用无边框窗口后，系统不再提供以下能力，必须手动实现：
-- 窗口移动（通过标题栏拖拽）
-- 窗口缩放（边缘/角落 resize handles）
+- 窗口移动（通过标题栏拖拽 / `nativeEvent` 返回 `HTCAPTION`）
+- 窗口缩放（通过 `nativeEvent` + `WM_NCHITTEST` 返回边缘 hit code）
 - 最大化/还原/最小化/关闭按钮
-- Aero Snap（Windows 11 窗口贴靠）
+- Aero Snap（Windows 11 窗口贴靠）— `HTCAPTION` 自动启用
 
 ### 17.2 标题栏实现模板
 
@@ -676,6 +753,58 @@ if "--no-frameless" in sys.argv:
     # 跳过 FramelessWindowHint，使用系统默认标题栏
     pass
 ```
+
+### 17.5 Windows 边缘缩放实现（`nativeEvent` + `WM_NCHITTEST`）
+
+无边框窗口必须通过 Windows 原生消息恢复边框 resize 能力：
+
+```python
+# main_window.py
+def nativeEvent(self, eventType, message):
+    if not self._use_frameless or sys.platform != "win32":
+        return False, 0
+
+    import ctypes
+    from ctypes import wintypes
+
+    try:
+        msg = ctypes.wintypes.MSG.from_address(int(message))
+    except Exception:
+        return False, 0
+
+    if msg.message != 0x0084:  # WM_NCHITTEST
+        return False, 0
+
+    x = ctypes.c_int16(msg.lParam & 0xFFFF).value
+    y = ctypes.c_int16(msg.lParam >> 16).value
+    pt = self.mapFromGlobal(QPoint(x, y))
+
+    border = 6  # 边缘检测宽度（px）
+
+    # 标题栏区域 → HTCAPTION（自动获得拖拽+Aero Snap+双击最大化）
+    title_bar_height = 36 if self._title_bar else 0
+    if pt.y() < title_bar_height and pt.y() >= 0:
+        return True, 2
+
+    # 边缘 resize hit code
+    left = pt.x() < border
+    right = pt.x() > self.width() - border
+    top = pt.y() < border
+    bottom = pt.y() > self.height() - border
+
+    if top and left:     return True, 13  # HTTOPLEFT
+    if top and right:    return True, 14  # HTTOPRIGHT
+    if bottom and left:  return True, 16  # HTBOTTOMLEFT
+    if bottom and right: return True, 17  # HTBOTTOMRIGHT
+    if top:              return True, 12  # HTTOP
+    if bottom:           return True, 15  # HTBOTTOM
+    if left:             return True, 10  # HTLEFT
+    if right:            return True, 11  # HTRIGHT
+
+    return False, 0
+```
+
+> **关键点**：`ctypes` 调用必须包裹 try/except（offscreen 测试环境不触发 nativeEvent）。`border=6` 为舒适拖拽宽度。标题栏区域返回 `HTCAPTION=2` 会自动启用 Aero Snap + 双击最大化。
 
 ---
 

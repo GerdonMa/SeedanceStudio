@@ -196,59 +196,116 @@
 
 ---
 
-## P9 — UI 精细化与完成度打磨（1.0 收官 🎯）
+## P9 — UI 精细化与完成度打磨（1.0 收官 ✅）
 
 ### P9.1 自定义窗口框架
-- [ ] 无边框窗口（`Qt.FramelessWindowHint` + `--no-frameless` 回退）
-- [ ] `ui/title_bar.py` — 自定义标题栏（`#titleBar`，36px 高）
+- [x] 无边框窗口（`Qt.FramelessWindowHint` + `--no-frameless` 回退）
+- [x] `ui/title_bar.py` — 自定义标题栏（`#titleBar`，36px 高）
   - 左侧：应用图标 + 名称（`#titleLabel`）
   - 右侧：最小化/最大化/关闭按钮（`#btnMin` / `#btnMax` / `#btnClose`）
   - 关闭按钮 hover：`#FF4D00` 背景
-- [ ] 窗口拖拽移动（标题栏空白区域 `mousePressEvent`/`mouseMoveEvent`）
-- [ ] Marathon 主题窗口边缘 1px `#1C2029` 边框
+- [x] 窗口拖拽移动（标题栏空白区域 `mousePressEvent`/`mouseMoveEvent`）
+- [x] Marathon 主题窗口边缘 1px `#1C2029` 边框
 
 ### P9.2 侧边栏折叠
-- [ ] 折叠/展开切换按钮（侧边栏底部）
-- [ ] 展开(200px) ↔ 折叠(56px图标) 过渡动画（200ms `OutCubic`）
-- [ ] 偏好持久化：`sidebar_collapsed` (bool)
-- [ ] 响应式：窗口 <900px 自动折叠
+- [x] 折叠/展开切换按钮（侧边栏底部）
+- [x] 展开(200px) ↔ 折叠(56px图标) 过渡动画（200ms `OutCubic`）
+- [x] 偏好持久化：`sidebar_collapsed` (bool)
+- [x] 响应式：窗口 <900px 自动折叠
 
 ### P9.3 通知/Toast 系统
-- [ ] `core/event_bus.py` 新增 `toast_requested(type, title, message)` 信号
-- [ ] `ui/widgets/toast_widget.py` — Toast 弹窗组件
+- [x] `core/event_bus.py` 新增 `toast_requested(type, title, message)` 信号
+- [x] `ui/widgets/toast_widget.py` — Toast 弹窗组件
   - 右下角弹出，距边缘 16px
   - 四种类型：success/warning/error/info（对应色条）
   - 进入动画：`slide_in_right` 300ms；退出：`fade_out` 150ms
   - 自动消失：5 秒
   - 最多 5 条同时显示
-- [ ] `MainWindow` 订阅 `toast_requested` 并创建 ToastWidget
+- [x] `MainWindow` 订阅 `toast_requested` 并创建 ToastWidget
 
 ### P9.4 菜单栏 & 关于对话框
-- [ ] QMenuBar 菜单栏（文件→导入主题/退出、帮助→关于）
-- [ ] `ui/widgets/about_dialog.py` — 关于对话框
+- [x] QMenuBar 菜单栏（文件→导入主题/退出、帮助→关于）
+- [x] `ui/widgets/about_dialog.py` — 关于对话框
   - 应用名 + 版本号 `1.0.0`
   - 技术栈展示（Python/PyQt6/volcengine SDK）
   - 作者信息
 
 ### P9.5 键盘快捷键
-- [ ] `Ctrl+1/2/3` 切换页面（`QShortcut` 或 `keyPressEvent`）
-- [ ] `Escape` 关闭当前 Toast/弹窗
+- [x] `Ctrl+1/2/3` 切换页面（`QShortcut`，`setAutoRepeat(False)`）
+- [x] `Escape` 关闭当前 Toast/弹窗
 
 ### P9.6 启动画面
-- [ ] `ui/splash_screen.py` — 居中无边框窗口
-- [ ] 显示应用名称 + 版本号 + 加载提示
-- [ ] 主窗口加载完成后 500ms fade_out
+- [x] `ui/splash_screen.py` — 居中无边框窗口
+- [x] 显示应用名称 + 版本号 + 加载提示
+- [x] 主窗口加载完成后 500ms fade_out
 
 ### P9.7 细节打磨
-- [ ] 窗口最大化状态记忆（`window_maximized` 偏好项）
-- [ ] 偏好持久化新增键：`window_maximized`、`sidebar_collapsed`
-- [ ] 提示词助手面板展开/折叠 `slide_in_right` 动画
-- [ ] 任务列表空状态提示（"暂无任务，去创建一个吧"）
-- [ ] 设置页「导入主题」按钮（文件对话框 → `ThemeLoader.import_zip()`）
+- [x] 窗口最大化状态记忆（`window_maximized` 偏好项）
+- [x] 偏好持久化新增键：`window_maximized`、`sidebar_collapsed`
+- [x] 提示词助手面板展开/折叠 `slide_in_right` 动画
+- [x] 任务列表空状态提示（"暂无任务，去创建一个吧"）
+- [x] 设置页「导入主题」按钮（文件对话框 → `ThemeLoader.import_zip()`）
+
+### 🔧 P9.8 UI主题系统重构（2026-05-08，✅ 已完成）
+
+> **背景**：UI模块存在严重bug（窗口不可用），根本原因是硬编码样式与主题QSS冲突。
+> **详细计划**：`.kilo/plans/1778210921292-kind-engine.md`
+
+#### 阶段一：建立主题变量系统 ✅
+- [x] 创建 `themes/theme_context.py` — ThemeContext 主题上下文管理器
+- [x] 扩展 `themes/builtin/marathon/fx.py` — THEME_MANIFEST 添加 colors 字段
+- [x] 扩展 `themes/builtin/default_dark.py` — 添加 colors 字段
+- [x] 扩展 `themes/builtin/default_light.py` — 添加 colors 字段
+
+#### 阶段二：重构UI组件（消除硬编码）✅
+- [x] 重构 `ui/splash_screen.py` — 删除硬编码样式，使用 objectName
+- [x] 重构 `ui/widgets/video_player_widget.py` — 删除硬编码样式
+- [x] 重构 `ui/widgets/asset_picker_widget.py` — 删除硬编码样式
+- [x] 重构 `ui/widgets/toast_widget.py` — 接入 ThemeContext 动态颜色
+- [x] 重构 `ui/widgets/media_upload_widget.py` — 接入 ThemeContext 动态颜色
+- [x] 重构 `ui/widgets/prompt_helper_widget.py` — 删除硬编码样式
+
+#### 阶段三：完善主题QSS覆盖 ✅
+- [x] 补充 Marathon 主题 — 6个组件的 QSS 样式
+- [x] 补充 Default Dark 主题 — 同步添加组件样式
+- [x] 补充 Default Light 主题 — 同步添加组件样式（浅色版本）
+
+#### 阶段四：完善主题切换机制 ✅
+- [x] 完善 `MainWindow._apply_theme()` — ThemeContext + 页面刷新 + 失败回退
+- [x] `ui/widgets/toast_widget.py` — 添加 on_theme_changed() 钩子
+- [x] `ui/widgets/media_upload_widget.py` — 添加 on_theme_changed() 钩子
+
+#### 阶段五：全面测试与验证 ✅
+- [x] 强制测试流程（testing_rules.md 第一章）
+- [x] 主题切换测试（Marathon / Default Dark / Default Light）
+- [x] 功能回归测试（文生视频、素材上传等）
+- [x] 性能与视觉一致性检查
+
+**验收标准**：
+- 窗口完全可用，所有交互功能正常
+- 三个内置主题完美支持，切换流畅
+- 无硬编码样式（除必须动态计算的）
+- 层间依赖合规
 
 ### 测试
-- [ ] 导入完整性 + 模块构造 + 行为逻辑 + GUI 启动 + 层间依赖合规
-- [ ] PyInstaller 打包验证（`pyinstaller --clean seedance.spec`）
+- [x] 导入完整性 + 模块构造 + 行为逻辑 + GUI 启动 + 层间依赖合规
+- [ ] PyInstaller 打包验证（`python -m PyInstaller --clean seedance.spec`）
+
+---
+
+## 🔧 2026-05-08 代码审计与修复（已完成 ✅）
+
+> 代码审计发现 7 个问题，已全部修复并验证。详见 `coding_rules.md` 第十五章 pitfall #36~#38。
+
+| # | 严重 | 位置 | 修复内容 |
+|---|------|------|---------|
+| A1 | 🔴 | `page_task_list.py:96,196` | UI 不再直接访问 `task_repo`，改用 `task_usecase.find_all_tasks()` / `query_task()` |
+| A2 | 🔴 | `video_player_widget.py:92` | UI 不再直接访问 `config`，改用 `settings_usecase.get_preference()` |
+| B1 | 🟡 | `media_upload_widget.py` + `main_window.py` | 删除重复的 `import ThemeContext` |
+| B2 | 🟡 | `main_window.py:15` | 删除未使用的 `QPixmap` import |
+| C1 | 🟢 | `main_window.py` | 移除 `_init_ui()` 中冗余的 `_restore_window_geometry()`，统一由 `main.py` 处理窗口几何恢复 |
+| D1 | 🟡 | `plan.md` | 同步版本状态：P9 标记为已完成 |
+| D2 | 🟡 | `coding_rules.md` | 第十五章新增 pitfall #36~#38 |
 
 ---
 

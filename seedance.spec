@@ -55,7 +55,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='SeedanceStudio',
+    name='SeedanceStudio-v1.1.0',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -68,7 +68,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # TODO: 修复 app.ico 后改回 'assets/icons/app.ico'
+    icon=None,  # app.ico 格式不被 PIL 识别，需修复图标文件
 )
 
 coll = COLLECT(
@@ -79,5 +79,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='SeedanceStudio',
+    name='SeedanceStudio-v1.1.0',
 )

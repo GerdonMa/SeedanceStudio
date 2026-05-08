@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QTextEdit, QPushButton, QMessageBox, QComboBox,
     QSlider, QSpinBox, QCheckBox, QFormLayout, QGroupBox, QScrollArea
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve
 
 from core.di_container import Container
 from domain.task_builders.base import TaskBuilderFactory
@@ -39,6 +39,7 @@ class CreatePage(QWidget):
     def __init__(self, container: Container):
         super().__init__()
         self._container = container
+        self._helper_anim = None
         self._init_ui()
         self._restore_prefs()
 
@@ -125,6 +126,7 @@ class CreatePage(QWidget):
         self._duration_spin = QSpinBox()
         self._duration_spin.setRange(4, 15)
         self._duration_spin.setSuffix(" 秒")
+        self._duration_spin.setMinimumWidth(90)
         duration_row.addWidget(self._duration_spin)
         output_form.addRow("时长:", duration_row)
 
@@ -163,15 +165,22 @@ class CreatePage(QWidget):
         content.setLayout(layout)
         scroll.setWidget(content)
 
-        # 提示词助手面板
+        # 提示词助手面板（用容器包裹以实现宽度动画）
         self._helper_panel = PromptHelperWidget()
         self._helper_panel.template_selected.connect(self._on_template_selected)
         self._helper_panel.hide()
 
+        self._helper_container = QWidget()
+        self._helper_container.setMaximumWidth(0)
+        helper_ctn_layout = QVBoxLayout()
+        helper_ctn_layout.setContentsMargins(0, 0, 0, 0)
+        helper_ctn_layout.addWidget(self._helper_panel)
+        self._helper_container.setLayout(helper_ctn_layout)
+
         outer = QHBoxLayout()
         outer.setContentsMargins(0, 0, 0, 0)
         outer.addWidget(scroll, 1)
-        outer.addWidget(self._helper_panel)
+        outer.addWidget(self._helper_container)
         self.setLayout(outer)
 
         self._connect_pref_signals()
@@ -247,8 +256,27 @@ class CreatePage(QWidget):
         self._media_group.setVisible(show_media)
 
     def _toggle_helper(self, checked: bool):
-        """切换提示词助手面板显示/隐藏"""
-        self._helper_panel.setVisible(checked)
+        """切换提示词助手面板显示/隐藏（slide_in_right 动画）"""
+        # 停止之前的动画防止冲突
+        if self._helper_anim is not None and self._helper_anim.state() == QPropertyAnimation.State.Running:
+            self._helper_anim.stop()
+
+        if checked:
+            self._helper_panel.show()
+            self._helper_anim = QPropertyAnimation(self._helper_container, b"maximumWidth")
+            self._helper_anim.setDuration(250)
+            self._helper_anim.setStartValue(0)
+            self._helper_anim.setEndValue(320)
+            self._helper_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+            self._helper_anim.start()
+        else:
+            self._helper_anim = QPropertyAnimation(self._helper_container, b"maximumWidth")
+            self._helper_anim.setDuration(200)
+            self._helper_anim.setStartValue(self._helper_container.width())
+            self._helper_anim.setEndValue(0)
+            self._helper_anim.setEasingCurve(QEasingCurve.Type.InCubic)
+            self._helper_anim.finished.connect(self._helper_panel.hide)
+            self._helper_anim.start()
         self._helper_toggle_btn.setText("▾ 提示词助手" if checked else "▸ 提示词助手")
 
     def _on_template_selected(self, template: str):

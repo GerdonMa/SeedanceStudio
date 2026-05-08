@@ -53,7 +53,7 @@ class VideoPlayerWidget(QWidget):
         info_layout.addWidget(self._url_label)
 
         self._expiry_label = QLabel("视频 URL 有效期为 24 小时，请及时下载")
-        self._expiry_label.setStyleSheet("color: #e67e22; font-size: 12px;")
+        self._expiry_label.setObjectName("expiryLabel")
         info_layout.addWidget(self._expiry_label)
 
         info_frame.setLayout(info_layout)
@@ -69,18 +69,8 @@ class VideoPlayerWidget(QWidget):
 
         download_btn = QPushButton("下载视频")
         download_btn.clicked.connect(self._on_download)
-        download_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #27ae60;
-                color: white;
-                padding: 6px 16px;
-                border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #219a52;
-            }
-        """)
+        download_btn.setObjectName("downloadButton")
+        download_btn.setProperty("role", "primary")
         btn_layout.addWidget(download_btn)
 
         layout.addLayout(btn_layout)
@@ -99,7 +89,7 @@ class VideoPlayerWidget(QWidget):
             from PyQt6.QtWidgets import QFileDialog
             from pathlib import Path
             
-            default_dir = self._container.config.get("download_path", str(Path.home() / "Desktop"))
+            default_dir = self._container.settings_usecase.get_preference("download_path", str(Path.home() / "Desktop"))
             default_path = str(Path(default_dir) / "seedance_video.mp4")
             
             save_path, _ = QFileDialog.getSaveFileName(

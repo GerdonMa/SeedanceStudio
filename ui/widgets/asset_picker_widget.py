@@ -48,7 +48,7 @@ class AssetPickerWidget(QDialog):
         layout.setSpacing(12)
 
         title = QLabel("资产库列表")
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        title.setObjectName("pickerTitle")
         layout.addWidget(title)
 
         self._table = QTableWidget()
@@ -64,7 +64,7 @@ class AssetPickerWidget(QDialog):
         layout.addWidget(self._table)
 
         self._status_label = QLabel()
-        self._status_label.setStyleSheet("color: #888;")
+        self._status_label.setObjectName("pickerStatus")
         layout.addWidget(self._status_label)
 
         btn_layout = QHBoxLayout()

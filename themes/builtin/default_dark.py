@@ -9,6 +9,30 @@ THEME_MANIFEST = {
     "author": "Seedance Studio",
     "description": "默认深色主题。深蓝背景 + 蓝色强调色。",
     "is_dark": True,
+    "colors": {
+        "bg_base": "#1a1a2e",
+        "bg_surface": "#16213e",
+        "bg_overlay": "#1a1a3e",
+        "bg_raised": "#0f3460",
+        "primary": "#3498db",
+        "danger": "#e74c3c",
+        "warning": "#f39c12",
+        "success": "#27ae60",
+        "info": "#3498db",
+        "text_primary": "#e0e0e0",
+        "text_secondary": "#aaaaaa",
+        "text_tertiary": "#888888",
+        "border_subtle": "#2a2a4a",
+        "border_default": "#3a3a5a",
+        "border_focus": "#3498db",
+        "toast_success": "#27ae60",
+        "toast_warning": "#f39c12",
+        "toast_error": "#e74c3c",
+        "toast_info": "#3498db",
+        "media_image": "#3498db",
+        "media_video": "#e67e22",
+        "media_audio": "#2ecc71",
+    },
 }
 
 THEME_QSS = """/* ===== 深色主题 ===== */
@@ -207,6 +231,170 @@ QToolTip {
     border: 1px solid #2a2a4a;
     padding: 6px 10px;
     border-radius: 4px;
+}
+
+/* =========================================================
+   启动画面 (SplashScreen)
+   ========================================================= */
+QWidget#splashScreen {
+    background-color: #1a1a2e;
+    border: 1px solid #2a2a4a;
+    border-radius: 8px;
+}
+QLabel#splashTitle {
+    color: #e0e0e0;
+    font-size: 22px;
+    font-weight: bold;
+}
+QLabel#splashVersion {
+    color: #888888;
+    font-size: 13px;
+}
+QLabel#splashLoading {
+    color: #3498db;
+    font-size: 12px;
+}
+
+/* =========================================================
+   Toast 通知 (ToastWidget)
+   ========================================================= */
+QFrame#toastItem {
+    background-color: #16213e;
+    border: 1px solid #2a2a4a;
+    border-radius: 6px;
+}
+QLabel#toastTitle {
+    font-weight: bold;
+    background: transparent;
+    color: #e0e0e0;
+}
+QLabel#toastMessage {
+    color: #aaaaaa;
+    font-size: 11px;
+    background: transparent;
+}
+
+/* =========================================================
+   提示词助手 (PromptHelperWidget)
+   ========================================================= */
+QLabel#helperTitle {
+    font-size: 14px;
+    font-weight: bold;
+    padding: 4px 0;
+    color: #e0e0e0;
+}
+QLabel#helperCategory {
+    font-weight: bold;
+    color: #aaaaaa;
+    padding: 4px 0 2px 0;
+}
+QPushButton#helperButton {
+    background: transparent;
+    border: 1px solid #2a2a4a;
+    border-radius: 4px;
+    padding: 6px 10px;
+    text-align: left;
+    color: #aaaaaa;
+    font-size: 12px;
+}
+QPushButton#helperButton:hover {
+    background-color: #1a1a3e;
+    border-color: #3498db;
+    color: #e0e0e0;
+}
+QLabel#helperFormula {
+    font-weight: bold;
+    color: #e0e0e0;
+    font-size: 11px;
+}
+QLabel#helperExample {
+    color: #aaaaaa;
+    font-size: 10px;
+    padding-left: 8px;
+}
+QLabel#helperNoData {
+    color: #888888;
+    font-size: 12px;
+    padding: 8px;
+}
+QFrame#helperSeparator {
+    background-color: #2a2a4a;
+    max-height: 1px;
+}
+QLabel#helperRuleTitle {
+    font-weight: bold;
+    color: #e0e0e0;
+    font-size: 12px;
+}
+QLabel#helperRuleDesc {
+    color: #aaaaaa;
+    font-size: 11px;
+}
+
+/* =========================================================
+   素材上传 (MediaUploadWidget)
+   ========================================================= */
+QLabel#dropZone {
+    border: 2px dashed #2a2a4a;
+    border-radius: 8px;
+    color: #888888;
+    font-size: 13px;
+    background-color: #1a1a2e;
+}
+QLabel#dropZone:hover {
+    border-color: #3498db;
+    background-color: #16213e;
+}
+QLabel#mediaSectionLabel {
+    font-weight: bold;
+    margin-top: 8px;
+    color: #e0e0e0;
+}
+QLabel#mediaCountLabel {
+    color: #888888;
+    font-size: 12px;
+}
+QFrame#mediaItemWidget {
+    border: 1px solid #2a2a4a;
+    border-radius: 4px;
+    background-color: #16213e;
+}
+QLabel#mediaNameLabel {
+    font-size: 10px;
+    color: #aaaaaa;
+    border: none;
+    background: transparent;
+}
+QPushButton#mediaRemoveButton {
+    background: transparent;
+    border: 1px solid #2a2a4a;
+    color: #aaaaaa;
+    font-size: 11px;
+    padding: 0 8px;
+}
+QPushButton#mediaRemoveButton:hover {
+    background-color: #e74c3c;
+    color: #ffffff;
+}
+
+/* =========================================================
+   视频播放器 (VideoPlayerWidget)
+   ========================================================= */
+QLabel#expiryLabel {
+    color: #f39c12;
+    font-size: 12px;
+}
+
+/* =========================================================
+   资产选择器 (AssetPickerWidget)
+   ========================================================= */
+QLabel#pickerTitle {
+    font-size: 16px;
+    font-weight: bold;
+    color: #e0e0e0;
+}
+QLabel#pickerStatus {
+    color: #888888;
 }"""
 
 SIDEBAR_QSS = """QWidget {

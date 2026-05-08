@@ -20,6 +20,7 @@ from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QPixmap, QFont
 from core.di_container import Container
 from domain.entities import MediaItem
 from domain.enums import MediaType
+from themes.theme_context import ThemeContext
 from ui.widgets.asset_picker_widget import AssetPickerWidget
 
 _IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff'}
@@ -75,15 +76,7 @@ class _DropZone(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setAcceptDrops(True)
         self.setMinimumHeight(80)
-        self.setStyleSheet("""
-            _DropZone {
-                border: 2px dashed #aaa;
-                border-radius: 8px;
-                color: #888;
-                font-size: 13px;
-                background-color: #f8f8f8;
-            }
-        """)
+        self.setObjectName("dropZone")
 
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
@@ -187,7 +180,7 @@ class MediaUploadWidget(QWidget):
 
         # 缩略图列表区
         thumb_label = QLabel("已添加素材:")
-        thumb_label.setStyleSheet("font-weight: bold; margin-top: 8px;")
+        thumb_label.setObjectName("mediaSectionLabel")
         layout.addWidget(thumb_label)
 
         self._thumbnail_scroll = QScrollArea()
@@ -207,7 +200,7 @@ class MediaUploadWidget(QWidget):
 
         # 数量提示
         self._count_label = QLabel()
-        self._count_label.setStyleSheet("color: #888; font-size: 12px;")
+        self._count_label.setObjectName("mediaCountLabel")
         self._update_count_label()
         layout.addWidget(self._count_label)
 
@@ -328,13 +321,7 @@ class MediaUploadWidget(QWidget):
         """添加缩略图组件到布局"""
         widget = QFrame()
         widget.setFixedSize(130, 150)
-        widget.setStyleSheet("""
-            QFrame {
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                background-color: #fafafa;
-            }
-        """)
+        widget.setObjectName("mediaItemWidget")
 
         frame_layout = QVBoxLayout()
         frame_layout.setContentsMargins(4, 4, 4, 4)
@@ -356,13 +343,16 @@ class MediaUploadWidget(QWidget):
                 thumb_label.setPixmap(pixmap)
             else:
                 thumb_label.setText("图片")
-                thumb_label.setStyleSheet("background-color: #e8f0fe; color: #3498db; font-size: 13px; border-radius: 4px;")
+                color = ThemeContext.get_color("media_image", "#3498db")
+                thumb_label.setStyleSheet(f"background-color: {color}; color: #fff; font-size: 13px; border-radius: 4px;")
         elif item.type == MediaType.VIDEO:
             thumb_label.setText("视频")
-            thumb_label.setStyleSheet("background-color: #fef3e2; color: #e67e22; font-size: 13px; border-radius: 4px;")
+            color = ThemeContext.get_color("media_video", "#e67e22")
+            thumb_label.setStyleSheet(f"background-color: {color}; color: #fff; font-size: 13px; border-radius: 4px;")
         else:
             thumb_label.setText("音频")
-            thumb_label.setStyleSheet("background-color: #e8f8e8; color: #2ecc71; font-size: 13px; border-radius: 4px;")
+            color = ThemeContext.get_color("media_audio", "#2ecc71")
+            thumb_label.setStyleSheet(f"background-color: {color}; color: #fff; font-size: 13px; border-radius: 4px;")
 
         frame_layout.addWidget(thumb_label)
 
@@ -371,14 +361,14 @@ class MediaUploadWidget(QWidget):
         name = name[:20] + "..." if len(name) > 20 else name
         name_label = QLabel(name)
         name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        name_label.setStyleSheet("font-size: 10px; color: #555; border: none; background: transparent;")
+        name_label.setObjectName("mediaNameLabel")
         name_label.setWordWrap(True)
         frame_layout.addWidget(name_label)
 
         # 删除按钮
         remove_btn = QPushButton("移除")
         remove_btn.setFixedHeight(22)
-        remove_btn.setStyleSheet("font-size: 11px; padding: 0 8px;")
+        remove_btn.setObjectName("mediaRemoveButton")
         remove_btn.clicked.connect(lambda: self._remove_item(index))
         frame_layout.addWidget(remove_btn)
 
@@ -463,3 +453,6 @@ class MediaUploadWidget(QWidget):
             errors.append(f"音频最多 {_MAX_COUNTS[MediaType.AUDIO]} 个，当前 {audio_count} 个")
 
         return errors
+
+    def on_theme_changed(self):
+        self._rebuild_thumbnails()

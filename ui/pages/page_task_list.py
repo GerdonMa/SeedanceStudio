@@ -76,7 +76,7 @@ class TaskListPage(QWidget):
         header_view.setSectionResizeMode(3, QHeaderView.ResizeMode.Interactive)
         header_view.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)
         header_view.setSectionResizeMode(5, QHeaderView.ResizeMode.Fixed)
-        self._table.setColumnWidth(5, 120)
+        self._table.setColumnWidth(5, 160)
 
         self._table.doubleClicked.connect(self._on_row_double_clicked)
 
@@ -93,11 +93,24 @@ class TaskListPage(QWidget):
     def _refresh(self):
         self._table.setRowCount(0)
         try:
-            tasks = self._container.task_repo.find_all()
+            tasks = self._container.task_usecase.find_all_tasks()
+            if not tasks:
+                self._show_empty_state()
+                return
             for task in tasks:
                 self._add_task_row(task)
         except Exception as e:
             QMessageBox.warning(self, "加载失败", f"无法加载任务列表: {e}")
+            self._show_empty_state()
+    
+    def _show_empty_state(self):
+        """显示空状态提示"""
+        self._table.setRowCount(1)
+        self._table.setSpan(0, 0, 1, len(_COLUMNS))
+        empty_item = QTableWidgetItem("暂无任务，去创建一个吧 ✨")
+        empty_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        empty_item.setFlags(Qt.ItemFlag.NoItemFlags)
+        self._table.setItem(0, 0, empty_item)
 
     def _add_task_row(self, task):
         row = self._table.rowCount()
@@ -151,13 +164,7 @@ class TaskListPage(QWidget):
         return -1
 
     def _on_task_created(self, task_id: str):
-        try:
-            task = self._container.task_repo.find_by_id(task_id)
-            if task:
-                self._table.insertRow(0)
-                self._add_task_row(task)
-        except Exception:
-            self._refresh()
+        self._refresh()
 
     def _on_task_updated(self, task_id: str, status: str):
         row = self._find_row_by_task_id(task_id)
@@ -186,7 +193,7 @@ class TaskListPage(QWidget):
         status_item = self._table.item(row, 3)
         if status_item and status_item.data(Qt.ItemDataRole.UserRole) == "succeeded":
             try:
-                task = self._container.task_repo.find_by_id(task_id)
+                task = self._container.task_usecase.query_task(task_id)
                 if task and task.video_url:
                     self._show_video_player(task_id, task.video_url)
             except Exception as e:

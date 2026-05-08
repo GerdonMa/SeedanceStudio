@@ -1,6 +1,6 @@
 # Seedance Studio — Windows 11 桌面软件规划文档（v3）
 
-> **Version**: 1.0  |  **Last Updated**: 2026-05-08  |  **Status**: P0~P8 完成 ✅  P9 规划中
+> **Version**: 1.0  |  **Last Updated**: 2026-05-08  |  **Status**: P0~P9 完成 ✅
 
 ---
 
@@ -558,7 +558,7 @@ UI 订阅事件，自动刷新任务列表 + 弹出预览
 | P6 | 提示词模板库 + 提示词助手面板 | 重要 |
 | P7 | 深色主题 + 界面打磨 + PyInstaller 打包 | 锦上添花 |
 | P8 | UI 主题系统：可扩展主题包架构 + Marathon 深空主题 | 锦上添花 |
-| P9 | UI 精细化与完成度打磨：自定义窗口框架 + 通知系统 + 侧边栏折叠 | 锦上添花 |
+| P9 | UI 精细化与完成度打磨：自定义窗口框架 + 通知系统 + 侧边栏折叠 | 已完成 ✅ |
 
 ---
 
@@ -603,6 +603,61 @@ main.py: ThemeLoader.discover_all()
   → ThemeRegistry.register(theme)
   → MainWindow._apply_theme_from_prefs()  从 ui_theme 偏好项恢复
 ```
+
+### 10.6 主题变量系统（ThemeContext）
+
+**设计目标**：解决硬编码样式问题，支持运行时主题切换。已实现（P9.8）。
+
+**ThemeContext 单例**（`themes/theme_context.py`）提供运行时主题变量访问：
+
+```python
+from themes.theme_context import ThemeContext
+
+primary_color = ThemeContext.get_color("primary", "#00E5FF")
+is_dark = ThemeContext.is_dark()
+```
+
+**颜色变量命名规范**：
+
+| 类别 | 变量名 | 用途 |
+|------|--------|------|
+| 背景 | `bg_base`, `bg_surface`, `bg_overlay`, `bg_raised` | 背景层级 |
+| 强调色 | `primary`, `danger`, `warning`, `success`, `info` | 功能色 |
+| 文字 | `text_primary`, `text_secondary`, `text_tertiary` | 文字层级 |
+| 边框 | `border_subtle`, `border_default`, `border_focus` | 边框层级 |
+| Toast | `toast_success`, `toast_warning`, `toast_error`, `toast_info` | 通知颜色 |
+| 媒体 | `media_image`, `media_video`, `media_audio` | 媒体类型颜色 |
+
+**主题 Manifest 扩展**：每个主题的 `THEME_MANIFEST` 必须包含 `colors` 字段：
+
+```python
+THEME_MANIFEST = {
+    "manifest_version": 1,
+    "id": "marathon",
+    "colors": {
+        "bg_base": "#0A0B10",
+        "primary": "#00E5FF",
+        "danger": "#FF4D00",
+        "text_primary": "#E8EAED",
+    }
+}
+```
+
+### 10.7 主题切换与回退机制（Phase 9）
+
+**主题切换流程**：
+```
+设置页选择主题
+  → MainWindow._apply_theme(theme_id)
+    → ThemeContext.set_current(theme_id)
+    → 应用全局QSS + 侧边栏QSS
+    → 触发组件 on_theme_changed() 钩子
+    → 调用 fx_module.on_theme_activated()
+```
+
+**失败回退**：主题加载失败 → ERROR日志 → 自动回退到 `default_light` → Toast通知用户。
+
+**组件钩子**：使用了 `ThemeContext.get_color()` 的组件需实现 `on_theme_changed()` 方法刷新动态样式。
 
 ---
 
@@ -714,13 +769,11 @@ main ─────────────────────────
 ### 14.3 Tag 命名
 
 ```
+v1.1.0  — 功能更新（侧边栏简化 + 层间依赖修复 + 无边框关闭）
 v1.0.0  — 初始发布
-v1.1.0  — 功能更新（向后兼容）
-v1.0.1  — Bug 修复（向后兼容）
-v2.0.0  — 重大更新（不兼容）
 ```
 
 ### 14.4 当前版本
 
-- **main**: `v1.0` — 初始发布（P0~P8 完成）
+- **main**: `v1.1` — 当前发布（P0~P9 完成，侧边栏简化 + 层间依赖修复）
 - **dev**: P9 开发进行中

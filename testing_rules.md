@@ -280,7 +280,7 @@ AI 在标记 todo.md 中任何任务为 `[x]` 前，必须逐项检查对应验�
 | P5 编辑/延长视频 | 新增 Builder 注册到 Factory；任务类型下拉包含新选项 |
 | P6 提示词助手 | `prompt_templates.json` ≥ 10 条模板；侧边面板可折叠 |
 | P7~P8 | 打包 + 主题系统 | `pyinstaller` 能生成 exe；`ThemeRegistry` 返回 3+ 主题；静态 import 加载内置主题 |
-| P9 | UI 精细化 | 无边框窗口可拖拽移动；自定义标题栏按钮功能正常；Toast 右下角弹出且自动消失；Ctrl+1/2/3 页面切换；快捷键 `Escape` 关闭 Toast；splash 启动画面显示 |
+| P9 | UI 精细化 | 无边框窗口可拖拽移动 + 边缘缩放（`nativeEvent` + `WM_NCHITTEST`）；自定义标题栏按钮（—/□/×）功能正常；Toast 右下角弹出且自动消失 5s；Ctrl+1/2/3 页面切换（setAutoRepeat=False）；Escape 关闭 Toast；splash 启动画面淡出关闭；侧边栏折叠/展开 200ms OutCubic 动画；提示词助手面板 slide-in 动画 + 文本可选复制；任务列表空状态提示；偏好新增 `window_maximized` + `sidebar_collapsed`；设置页导入主题按钮 |
 
 ---
 
@@ -354,6 +354,9 @@ SAMPLE_MEDIA_ITEM_AUDIO = MediaItem(type=MediaType.AUDIO, url="https://example.c
 | `infrastructure/ark_api_client.py` | 所有调用它的 use case + poll worker |
 | `core/event_bus.py`（新增 toast_requested） | 所有 emit / connect toast_requested 的模块（MainWindow、各 Page） |
 | `ui/main_window.py`（P9 无边框窗口） | `main.py`（窗口初始化）、所有页面（快捷键上下文） |
+| `ui/title_bar.py`（P9 自定义标题栏） | `main_window.py`（初始化 + changeEvent）、`main.py`（图标设置） |
+| `ui/widgets/toast_widget.py`（P9 Toast 组件） | `main_window.py`（事件订阅 + 布局层次）、使用 `toast_requested` 的模块 |
+| `ui/splash_screen.py`（P9 启动画面） | `main.py`（初始化时序） |
 
 检查方法：修改上述任一文件后，运行完整测试流程（1.1 → 1.5）一遍。
 
@@ -532,17 +535,16 @@ print()
 print('*** ALL BEHAVIOR TESTS PASSED ***')
 ```
 
-### P9 模块测试（待实现后追加）
+### P9 模块测试（已实现 ✅）
 
 ```python
 # ===== P9 通知/Toast 系统测试 =====
 from core.event_bus import EventBus
 eb = EventBus.instance()
-# 验证 toast_requested 信号存在
 assert hasattr(eb, 'toast_requested')
 print('[PASS] EventBus.toast_requested signal exists')
 
-# ===== P9 快捷键测试（需 offscreen 模式）=====
+# ===== P9 快捷键 & MainWindow 测试（需 offscreen 模式）=====
 import sys, os
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 from PyQt6.QtWidgets import QApplication
@@ -550,11 +552,67 @@ from core.di_container import Container
 from ui.main_window import MainWindow
 app = QApplication(sys.argv)
 container = Container()
-window = MainWindow(container)
-# 验证快捷键已注册（Ctrl+1/2/3 应该映射到 switch_page）
+window = MainWindow(container, use_frameless=False)
+assert window._pages.count() == 3
+assert 'Seedance' in window.windowTitle()
+
+# 快捷键已注册（Ctrl+1/2/3）
 assert hasattr(window, '_nav_buttons')
 assert len(window._nav_buttons) >= 3
 print('[PASS] MainWindow shortcuts registered')
+
+# nativeEvent 存在（窗口边缘缩放）
+assert hasattr(MainWindow, 'nativeEvent')
+print('[PASS] MainWindow.nativeEvent present')
+
+# 侧边栏折叠/展开
+assert hasattr(window, '_toggle_sidebar')
+assert hasattr(window, '_expand_sidebar')
+assert hasattr(window, '_collapse_sidebar')
+assert window._sidebar.width() == 200  # SIDEBAR_EXPANDED
+print('[PASS] Sidebar default expanded width=200')
+
+# 菜单栏已移除
+assert not hasattr(window, '_setup_menu_bar')
+print('[PASS] Menu bar removed')
+
+# ===== P9 标题栏测试 =====
+from PyQt6.QtWidgets import QMainWindow as QMW
+parent = QMW()
+from ui.title_bar import TitleBar
+title_bar = TitleBar(parent)
+assert title_bar.height() == 36
+print('[PASS] TitleBar height=36')
+
+# ===== P9 启动画面测试 =====
+from ui.splash_screen import SplashScreen
+splash = SplashScreen()
+assert splash.isHidden()
+splash.show()
+splash.close()
+assert splash._close_anim is not None
+print('[PASS] SplashScreen close anim referenced')
+
+# ===== P9 提示词助手测试 =====
+from ui.widgets.prompt_helper_widget import PromptHelperWidget
+from PyQt6.QtWidgets import QGroupBox, QLabel
+from PyQt6.QtCore import Qt
+helper = PromptHelperWidget()
+groups = helper.findChildren(QGroupBox)
+
+formula_group = next((g for g in groups if g.title() == '提示词公式速查'), None)
+assert formula_group is not None
+assert not formula_group.isCheckable()
+formula_labels = formula_group.findChildren(QLabel)
+assert any(l.textInteractionFlags() != Qt.TextInteractionFlag.NoTextInteraction for l in formula_labels)
+print('[PASS] PromptHelper: formula labels selectable')
+
+ref_group = next((g for g in groups if g.title() == '素材引用格式说明'), None)
+assert ref_group is not None
+assert not ref_group.isCheckable()
+ref_labels = ref_group.findChildren(QLabel)
+assert any(l.textInteractionFlags() != Qt.TextInteractionFlag.NoTextInteraction for l in ref_labels)
+print('[PASS] PromptHelper: reference labels selectable')
 
 # ===== P9 配置默认值测试 =====
 from infrastructure.config_store import ConfigStore
@@ -562,7 +620,69 @@ import logging
 cs = ConfigStore(logging.getLogger('test'))
 prefs = cs.get_all()
 assert 'ui_theme' in prefs
-assert 'window_x' in prefs
+assert 'sidebar_collapsed' in prefs
+assert 'window_maximized' in prefs
 print('[PASS] ConfigStore includes P9 preference keys')
+
+print()
+print('*** ALL P9 TESTS PASSED ***')
+```
+
+### P9.8 主题系统重构测试（2026-05-08 新增）
+
+```python
+# ===== ThemeContext 导入与功能测试 =====
+from themes.theme_context import ThemeContext
+from themes import ThemeRegistry
+from themes.theme_loader import ThemeLoader
+from core.logger import setup_logger
+
+logger = setup_logger()
+loader = ThemeLoader(logger)
+themes = loader.discover_all()
+
+# 验证所有主题包含 colors 字段
+for theme in themes:
+    assert 'colors' in theme.manifest, f'{theme.id} missing colors'
+print('[PASS] All themes have colors field')
+
+# 验证 ThemeContext 正确获取颜色
+ThemeContext.set_current('marathon')
+assert ThemeContext.get_color('primary', '#000') == '#00E5FF'
+assert ThemeContext.get_color('nonexistent', '#fallback') == '#fallback'
+print('[PASS] ThemeContext.get_color() with fallback')
+
+# 验证 is_dark
+assert ThemeContext.is_dark() == True
+ThemeContext.set_current('default_light')
+assert ThemeContext.is_dark() == False
+print('[PASS] ThemeContext.is_dark()')
+
+# ===== 主题切换测试（需 offscreen 模式）=====
+import sys, os
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'
+from PyQt6.QtWidgets import QApplication
+from core.di_container import Container
+from ui.main_window import MainWindow
+app = QApplication(sys.argv)
+container = Container()
+window = MainWindow(container, use_frameless=False)
+
+# 快速切换主题，验证无崩溃
+for theme_id in ['marathon', 'default_dark', 'default_light', 'marathon']:
+    window._apply_theme(theme_id)
+print('[PASS] Theme switching stress test')
+
+# 验证失败回退
+window._apply_theme('non_existent_theme')
+assert ThemeContext._current_theme_id == 'default_light'
+print('[PASS] Theme fallback to default_light')
+
+# ===== 硬编码样式检查说明 =====
+# 需手动执行: grep -r "setStyleSheet" ui/ | grep -v "ThemeContext" | wc -l
+# 预期结果: < 10 (仅动态样式例外)
+
+print()
+print('*** ALL P9.8 THEME REFACTOR TESTS PASSED ***')
 ```
 ```

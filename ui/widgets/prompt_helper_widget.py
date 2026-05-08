@@ -47,7 +47,7 @@ class PromptHelperWidget(QWidget):
         main_layout.setSpacing(10)
 
         title = QLabel("提示词助手")
-        title.setStyleSheet("font-size: 14px; font-weight: bold; padding: 4px 0;")
+        title.setObjectName("helperTitle")
         main_layout.addWidget(title)
 
         scroll = QScrollArea()
@@ -85,32 +85,19 @@ class PromptHelperWidget(QWidget):
 
         for cat_name, templates in categories.items():
             cat_label = QLabel(cat_name)
-            cat_label.setStyleSheet("font-weight: bold; color: #555; padding: 4px 0 2px 0;")
+            cat_label.setObjectName("helperCategory")
             layout.addWidget(cat_label)
 
             for t in templates:
                 btn = QPushButton(t["name"])
-                btn.setStyleSheet("""
-                    QPushButton {
-                        text-align: left;
-                        padding: 6px 10px;
-                        border: 1px solid #ddd;
-                        border-radius: 4px;
-                        background-color: #fafafa;
-                        font-size: 12px;
-                    }
-                    QPushButton:hover {
-                        background-color: #e8f4fd;
-                        border-color: #3498db;
-                    }
-                """)
+                btn.setObjectName("helperButton")
                 btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 btn.clicked.connect(lambda checked, tmpl=t["template"]: self._on_template_clicked(tmpl))
                 layout.addWidget(btn)
 
         if not self._templates:
             no_data = QLabel("暂无模板")
-            no_data.setStyleSheet("color: #999; padding: 8px;")
+            no_data.setObjectName("helperNoData")
             layout.addWidget(no_data)
 
         group.setLayout(layout)
@@ -119,8 +106,6 @@ class PromptHelperWidget(QWidget):
     def _build_formula_section(self) -> QGroupBox:
         """构建提示词公式速查区域"""
         group = QGroupBox("提示词公式速查")
-        group.setCheckable(True)
-        group.setChecked(False)
 
         layout = QVBoxLayout()
         layout.setSpacing(6)
@@ -137,18 +122,20 @@ class PromptHelperWidget(QWidget):
             row.setSpacing(2)
 
             formula_label = QLabel(formula)
-            formula_label.setStyleSheet("font-weight: bold; color: #2c3e50; font-size: 11px;")
+            formula_label.setObjectName("helperFormula")
             formula_label.setWordWrap(True)
+            formula_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             row.addWidget(formula_label)
 
             example_label = QLabel(f"示例: {example}")
-            example_label.setStyleSheet("color: #7f8c8d; font-size: 10px; padding-left: 8px;")
+            example_label.setObjectName("helperExample")
             example_label.setWordWrap(True)
+            example_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             row.addWidget(example_label)
 
             sep = QFrame()
             sep.setFrameShape(QFrame.Shape.HLine)
-            sep.setStyleSheet("color: #eee;")
+            sep.setObjectName("helperSeparator")
             row.addWidget(sep)
 
             layout.addLayout(row)
@@ -159,8 +146,6 @@ class PromptHelperWidget(QWidget):
     def _build_reference_section(self) -> QGroupBox:
         """构建素材引用格式说明区域"""
         group = QGroupBox("素材引用格式说明")
-        group.setCheckable(True)
-        group.setChecked(False)
 
         layout = QVBoxLayout()
         layout.setSpacing(6)
@@ -179,13 +164,15 @@ class PromptHelperWidget(QWidget):
             row.setSpacing(1)
 
             rule_title = QLabel(title_text)
-            rule_title.setStyleSheet("font-weight: bold; color: #2c3e50; font-size: 11px;")
+            rule_title.setObjectName("helperRuleTitle")
             rule_title.setWordWrap(True)
+            rule_title.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             row.addWidget(rule_title)
 
             rule_desc = QLabel(desc)
-            rule_desc.setStyleSheet("color: #7f8c8d; font-size: 10px; padding-left: 8px;")
+            rule_desc.setObjectName("helperRuleDesc")
             rule_desc.setWordWrap(True)
+            rule_desc.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             row.addWidget(rule_desc)
 
             layout.addLayout(row)
