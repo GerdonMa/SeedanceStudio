@@ -5,7 +5,10 @@
 """
 from __future__ import annotations
 
+import base64
 import logging
+import mimetypes
+from pathlib import Path
 
 from volcenginesdkarkruntime import Ark
 
@@ -38,6 +41,19 @@ class ArkApiClient(IApiClient):
         
         return self._client
     
+    def _resolve_media_url(self, url: str) -> str:
+        if url.startswith(("http://", "https://", "asset://", "data:")):
+            return url
+        path = Path(url)
+        if not path.is_file():
+            raise ApiError("FILE_NOT_FOUND", f"文件不存在: {url}")
+        mime, _ = mimetypes.guess_type(str(path))
+        if mime is None:
+            mime = "application/octet-stream"
+        with open(path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("ascii")
+        return f"data:{mime};base64,{b64}"
+
     def create_task(self, request: TaskRequest) -> str:
         """
         创建视频生成任务。
@@ -67,7 +83,8 @@ class ArkApiClient(IApiClient):
             # 添加媒体素材
             if request.media_items:
                 for item in request.media_items:
-                    media_url = item.url if not item.asset_id else f"asset://{item.asset_id}"
+                    raw_url = item.url if not item.asset_id else f"asset://{item.asset_id}"
+                    media_url = self._resolve_media_url(raw_url)
                     if item.type.value == "image":
                         content.append({
                             "type": "image_url",

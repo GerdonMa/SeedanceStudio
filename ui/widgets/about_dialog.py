@@ -2,6 +2,7 @@
 关于对话框。
 
 显示版权归属、技术栈和使用说明。
+颜色通过 ThemeContext 动态获取，支持深色/浅色主题切换。
 """
 from __future__ import annotations
 
@@ -10,8 +11,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
+from themes.theme_context import ThemeContext
 
-APP_VERSION = "1.1.0"
+
+APP_VERSION = "1.2.1"
 
 _COPYRIGHT = "© 2025 GerdonMa. All rights reserved."
 
@@ -30,6 +33,12 @@ _USAGE = (
 
 
 def show_about_dialog(parent=None):
+    c_accent = ThemeContext.get_color("primary", "#C8FF00")
+    c_primary = ThemeContext.get_color("text_primary", "#FFFFFF")
+    c_secondary = ThemeContext.get_color("text_secondary", "#717171")
+    c_tertiary = ThemeContext.get_color("text_tertiary", "#444444")
+    c_border = ThemeContext.get_color("border_default", "#333333")
+
     dialog = QDialog(parent)
     dialog.setWindowTitle("关于 Seedance Studio")
     dialog.setFixedSize(420, 370)
@@ -47,21 +56,21 @@ def show_about_dialog(parent=None):
     title = QLabel("Seedance Studio")
     title.setObjectName("aboutTitle")
     title.setStyleSheet(
-        "font-family: 'Eurostile Extended', 'Microgramma', 'Share Tech', sans-serif;"
-        "font-size: 20px; font-weight: 700; color: #C8FF00;"
+        f"font-family: 'Eurostile Extended', 'Microgramma', 'Share Tech', sans-serif;"
+        f"font-size: 20px; font-weight: 700; color: {c_accent};"
     )
     title.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(title)
 
     version = QLabel(f"版本 {APP_VERSION}")
-    version.setStyleSheet("font-size: 12px; color: #717171;")
+    version.setStyleSheet(f"font-size: 12px; color: {c_secondary};")
     version.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(version)
 
     layout.addSpacing(4)
 
     copyright_label = QLabel(_COPYRIGHT)
-    copyright_label.setStyleSheet("font-size: 11px; color: #717171;")
+    copyright_label.setStyleSheet(f"font-size: 11px; color: {c_secondary};")
     copyright_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(copyright_label)
 
@@ -69,18 +78,18 @@ def show_about_dialog(parent=None):
 
     sep1 = QFrame()
     sep1.setFrameShape(QFrame.Shape.HLine)
-    sep1.setStyleSheet("background-color: #333333; max-height: 1px;")
+    sep1.setStyleSheet(f"background-color: {c_border}; max-height: 1px;")
     layout.addWidget(sep1)
 
     tech_title = QLabel("技术栈")
     tech_title.setStyleSheet(
-        "font-size: 10px; font-weight: 700; color: #444444; letter-spacing: 2px;"
+        f"font-size: 10px; font-weight: 700; color: {c_tertiary}; letter-spacing: 2px;"
     )
     tech_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(tech_title)
 
     tech_content = QLabel(_TECH_STACK)
-    tech_content.setStyleSheet("font-size: 12px; color: #FFFFFF;")
+    tech_content.setStyleSheet(f"font-size: 12px; color: {c_primary};")
     tech_content.setAlignment(Qt.AlignmentFlag.AlignCenter)
     tech_content.setWordWrap(True)
     layout.addWidget(tech_content)
@@ -89,18 +98,18 @@ def show_about_dialog(parent=None):
 
     sep2 = QFrame()
     sep2.setFrameShape(QFrame.Shape.HLine)
-    sep2.setStyleSheet("background-color: #333333; max-height: 1px;")
+    sep2.setStyleSheet(f"background-color: {c_border}; max-height: 1px;")
     layout.addWidget(sep2)
 
     usage_title = QLabel("使用说明")
     usage_title.setStyleSheet(
-        "font-size: 10px; font-weight: 700; color: #444444; letter-spacing: 2px;"
+        f"font-size: 10px; font-weight: 700; color: {c_tertiary}; letter-spacing: 2px;"
     )
     usage_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(usage_title)
 
     usage_content = QLabel(_USAGE)
-    usage_content.setStyleSheet("font-size: 12px; color: #FFFFFF;")
+    usage_content.setStyleSheet(f"font-size: 12px; color: {c_primary};")
     usage_content.setAlignment(Qt.AlignmentFlag.AlignCenter)
     usage_content.setWordWrap(True)
     layout.addWidget(usage_content)
