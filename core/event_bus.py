@@ -31,7 +31,10 @@ class EventBus(QObject):
     asset_rejected = pyqtSignal(str, str)  # asset_id, reason
 
     # 主题相关事件
-    theme_changed = pyqtSignal(str)  # theme_id (e.g. "default_light", "marathon")
+    theme_changed = pyqtSignal(str)  # theme_id (e.g. "graphite", "swiss")
+
+    # 导航事件：跨页面跳转请求（page_index，与 MainWindow._pages 索引一致）
+    page_switch_requested = pyqtSignal(int)
 
     # 通知/Toast 事件 (P9)
     toast_requested = pyqtSignal(str, str, str)  # type, title, message

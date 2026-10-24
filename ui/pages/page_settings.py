@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 from core.di_container import Container
+from ui.widgets.page_header import PageHeader
 from themes import ThemeRegistry
 from themes.theme_loader import ThemeLoader
 
@@ -29,13 +30,15 @@ class SettingsPage(QWidget):
     def _init_ui(self):
         """初始化 UI"""
         layout = QVBoxLayout()
-        layout.setContentsMargins(20, 20, 20, 20)
-        
-        # 标题
-        title = QLabel("设置")
-        title.setObjectName("pageTitle")
-        layout.addWidget(title)
-        
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(14)
+
+        # 页头
+        layout.addWidget(PageHeader("System", "设置", "API 连接、偏好与外观配置"))
+
+        # 各分组之间统一 14 间距
+        layout.addSpacing(14)
+
         # 表单
         form = QFormLayout()
         form.setSpacing(15)

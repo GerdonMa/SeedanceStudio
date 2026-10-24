@@ -25,10 +25,7 @@ from ui.pages.page_task_list import TaskListPage
 from ui.title_bar import TitleBar
 from ui.widgets.toast_widget import ToastWidget
 from ui.widgets.about_dialog import show_about_dialog
-from ui.widgets.sidebar_icons import (
-    create_video_icon, create_settings_icon,
-    create_task_list_icon, create_about_icon,
-)
+from ui.widgets import pro_icons
 from themes import ThemeRegistry
 from themes.theme_context import ThemeContext
 from themes.theme_loader import ThemeLoader
@@ -37,7 +34,7 @@ from themes.theme_loader import ThemeLoader
 class MainWindow(QMainWindow):
     """主窗口"""
 
-    SIDEBAR_EXPANDED = 280
+    SIDEBAR_EXPANDED = 232
 
     def __init__(self, container: Container, use_frameless: bool = True):
         super().__init__()
@@ -45,13 +42,14 @@ class MainWindow(QMainWindow):
         self._sidebar: QWidget | None = None
         self._title_bar: TitleBar | None = None
         self._use_frameless = use_frameless
-        
+        self._task_badge: QLabel | None = None
+
         # 主题系统初始化
         if not ThemeRegistry.list_all():
             loader = ThemeLoader(container.logger)
             for theme in loader.discover_all():
                 ThemeRegistry.register(theme)
-        
+
         if self._use_frameless:
             self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
 
@@ -59,12 +57,13 @@ class MainWindow(QMainWindow):
         self._setup_shortcuts()
         self._subscribe_events()
         self._apply_theme_from_prefs()
+        self._refresh_task_badge()
 
     # ---- UI 初始化 ----
 
     def _init_ui(self):
         self.setWindowTitle("Seedance Studio")
-        self.setMinimumSize(900, 600)
+        self.setMinimumSize(1000, 640)
 
         # 根容器：标题栏（overlay）+ 中心部件
         root = QWidget()
@@ -90,9 +89,9 @@ class MainWindow(QMainWindow):
 
         self._pages = QStackedWidget()
         self._pages.setObjectName("contentArea")
-        self._pages.addWidget(CreatePage(self._container))   # 索引 0
-        self._pages.addWidget(SettingsPage(self._container))  # 索引 1
-        self._pages.addWidget(TaskListPage(self._container))  # 索引 2
+        self._pages.addWidget(CreatePage(self._container))     # 索引 0：创建工作台
+        self._pages.addWidget(TaskListPage(self._container))   # 索引 1：任务中心
+        self._pages.addWidget(SettingsPage(self._container))   # 索引 2：设置
         central_layout.addWidget(self._pages, 1)
 
         central.setLayout(central_layout)
@@ -107,48 +106,122 @@ class MainWindow(QMainWindow):
         self._switch_page(0)
 
     def _create_sidebar(self) -> QWidget:
+        """专业导航侧边栏：品牌区 + 分组导航 + 任务计数徽章"""
         sidebar = QWidget()
         sidebar.setFixedWidth(self.SIDEBAR_EXPANDED)
         sidebar.setObjectName("sidebar")
 
         layout = QVBoxLayout()
-        layout.setContentsMargins(0, 8, 0, 0)
+        layout.setContentsMargins(10, 12, 10, 10)
         layout.setSpacing(0)
 
-        # 应用标题
-        self._sidebar_title = QLabel("Seedance Studio")
-        self._sidebar_title.setObjectName("appTitle")
-        self._sidebar_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self._sidebar_title)
+        # --- 品牌区：标识方块 + 产品名 ---
+        brand_row = QHBoxLayout()
+        brand_row.setSpacing(10)
 
-        # 导航按钮
+        mark = QWidget()
+        mark.setObjectName("brandMark")
+        mark.setFixedSize(30, 30)
+        mark_text = QLabel("S")
+        mark_text.setObjectName("brandMarkText")
+        mark_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        mark_layout = QVBoxLayout(mark)
+        mark_layout.setContentsMargins(0, 0, 0, 0)
+        mark_layout.addWidget(mark_text)
+        brand_row.addWidget(mark)
+
+        brand_texts = QVBoxLayout()
+        brand_texts.setContentsMargins(0, 0, 0, 0)
+        brand_texts.setSpacing(0)
+        brand_name = QLabel("Seedance Studio")
+        brand_name.setObjectName("brandName")
+        brand_sub = QLabel("VIDEO GENERATION")
+        brand_sub.setObjectName("brandSub")
+        brand_texts.addWidget(brand_name)
+        brand_texts.addWidget(brand_sub)
+        brand_row.addLayout(brand_texts)
+        brand_row.addStretch()
+
+        layout.addLayout(brand_row)
+
+        # --- 导航按钮 ---
+        # 顺序必须与 _pages.addWidget 一致（pitfall #14）
         self._nav_buttons = []
 
-        nav_items = [
-            ("创建视频", 0, create_video_icon()),
-            ("设置",   1, create_settings_icon()),
-            ("任务列表", 2, create_task_list_icon()),
-        ]
+        nav_label_1 = QLabel("工作区")
+        nav_label_1.setObjectName("navLabel")
+        layout.addWidget(nav_label_1)
 
-        for text, index, icon in nav_items:
-            btn = QPushButton(text)
-            btn.setIcon(icon)
-            btn.setIconSize(QSize(16, 16))
-            btn.setCheckable(True)
-            btn.clicked.connect(lambda checked, i=index: self._switch_page(i))
-            self._nav_buttons.append(btn)
-            layout.addWidget(btn)
+        create_btn = QPushButton("  创建工作台")
+        create_btn.setIcon(pro_icons.create_icon())
+        create_btn.setIconSize(QSize(18, 18))
+        create_btn.setCheckable(True)
+        create_btn.clicked.connect(lambda checked: self._switch_page(0))
+        self._nav_buttons.append(create_btn)
+        layout.addWidget(create_btn)
 
-        about_btn = QPushButton("关于")
-        about_btn.setIcon(create_about_icon())
+        # 任务行：按钮 + 运行中计数徽章
+        task_row = QHBoxLayout()
+        task_row.setContentsMargins(0, 0, 6, 0)
+        task_row.setSpacing(6)
+        tasks_btn = QPushButton("  任务中心")
+        tasks_btn.setIcon(pro_icons.tasks_icon())
+        tasks_btn.setIconSize(QSize(18, 18))
+        tasks_btn.setCheckable(True)
+        tasks_btn.clicked.connect(lambda checked: self._switch_page(1))
+        self._nav_buttons.append(tasks_btn)
+        task_row.addWidget(tasks_btn, 1)
+
+        self._task_badge = QLabel("")
+        self._task_badge.setObjectName("navBadge")
+        self._task_badge.setProperty("active", True)
+        self._task_badge.hide()
+        task_row.addWidget(self._task_badge)
+        layout.addLayout(task_row)
+
+        nav_label_2 = QLabel("系统")
+        nav_label_2.setObjectName("navLabel")
+        layout.addWidget(nav_label_2)
+
+        settings_btn = QPushButton("  设置")
+        settings_btn.setIcon(pro_icons.settings_icon())
+        settings_btn.setIconSize(QSize(18, 18))
+        settings_btn.setCheckable(True)
+        settings_btn.clicked.connect(lambda checked: self._switch_page(2))
+        self._nav_buttons.append(settings_btn)
+        layout.addWidget(settings_btn)
+
+        layout.addStretch()
+
+        # --- 底部：关于 ---
+        about_btn = QPushButton("  关于 Seedance")
+        about_btn.setObjectName("aboutBtn")
+        about_btn.setIcon(pro_icons.about_icon())
         about_btn.setIconSize(QSize(16, 16))
         about_btn.clicked.connect(lambda: show_about_dialog(self))
         layout.addWidget(about_btn)
 
-        layout.addStretch()
-
         sidebar.setLayout(layout)
         return sidebar
+
+    def _refresh_task_badge(self):
+        """刷新侧边栏运行中任务计数徽章"""
+        if self._task_badge is None:
+            return
+        try:
+            tasks = self._container.task_usecase.find_all_tasks()
+            active = sum(
+                1 for t in tasks
+                if t.status.value in ("queued", "pending", "running")
+            )
+            if active > 0:
+                self._task_badge.setText(str(active))
+                self._task_badge.show()
+            else:
+                self._task_badge.hide()
+        except Exception as e:
+            self._container.logger.warning(f"Failed to refresh task badge: {e}")
+            self._task_badge.hide()
 
     def _setup_shortcuts(self):
         # Ctrl+1/2/3 切换页面 (setAutoRepeat(False) 防止重复触发，pitfall #28)
@@ -167,15 +240,21 @@ class MainWindow(QMainWindow):
         eb = self._container.event_bus
         eb.theme_changed.connect(self._on_theme_changed)
         eb.toast_requested.connect(self._on_toast_requested)
+        eb.page_switch_requested.connect(self._switch_page)
+        # 任务状态变化时刷新侧边栏运行中计数
+        eb.task_created.connect(lambda _id: self._refresh_task_badge())
+        eb.task_updated.connect(lambda _id, _s: self._refresh_task_badge())
+        eb.task_succeeded.connect(lambda _id, _u: self._refresh_task_badge())
+        eb.task_failed.connect(lambda _id, _e: self._refresh_task_badge())
 
     # ---- 主题 ----
 
     def _apply_theme_from_prefs(self):
         prefs = self._container.settings_usecase.load_preferences()
         theme_id = prefs.get("ui_theme")
-        if not theme_id:
-            dark = prefs.get("dark_mode", False)
-            theme_id = "default_dark" if dark else "default_light"
+        if theme_id not in ThemeRegistry.registered_ids():
+            # 未配置 / 旧版本已删除的主题（default_*/marathon）→ 迁移到默认主题
+            theme_id = ThemeRegistry.default_id()
             self._container.settings_usecase.save_preference("ui_theme", theme_id)
         self._apply_theme(theme_id)
 
@@ -211,11 +290,12 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             self._container.logger.error(f"Failed to apply theme '{theme_id}': {e}")
-            if theme_id != "default_light":
-                self._container.logger.info("Falling back to default_light theme")
-                self._apply_theme("default_light")
+            fallback = ThemeRegistry.default_id()
+            if theme_id != fallback:
+                self._container.logger.info(f"Falling back to {fallback} theme")
+                self._apply_theme(fallback)
             else:
-                self._container.logger.critical("Failed to load default_light theme, UI may be broken")
+                self._container.logger.critical(f"Failed to load {fallback} theme, UI may be broken")
 
     def _on_theme_changed(self, theme_id: str):
         try:

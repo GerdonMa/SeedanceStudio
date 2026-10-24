@@ -7,10 +7,8 @@ P9: 支持 --no-frameless 回退参数、启动画面。
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import QTimer
 
 from core.di_container import Container
@@ -46,12 +44,10 @@ def main():
             f"Theme system: {len(ThemeRegistry.list_all())} themes loaded"
         )
 
-        # 5. 设置应用图标
-        icon_path = Path(__file__).parent / "assets" / "icons" / "app.ico"
-        icon = None
-        if icon_path.exists():
-            icon = QIcon(str(icon_path))
-            app.setWindowIcon(icon)
+        # 5. 设置应用图标（程序化品牌图标，与主题品牌区同语言；打包环境回退 app.ico）
+        from ui.widgets.app_icon import create_app_icon
+        icon = create_app_icon()
+        app.setWindowIcon(icon)
 
         # 6. 创建主窗口
         window = MainWindow(container, use_frameless=use_frameless)

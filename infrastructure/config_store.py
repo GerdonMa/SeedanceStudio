@@ -104,12 +104,16 @@ class ConfigStore:
         return {
             "api_key": "",
             "base_url": "https://ark.cn-beijing.volces.com/api/v3",
-            "default_model": "doubao-seedance-2-0-260128",
+            "default_model": "doubao-seedance-2-5-260628",
             "default_task_type": "text_to_video",
             "asset_mode_enabled": False,
             "default_resolution": "720p",
             "default_aspect_ratio": "16:9",
             "default_duration": 5,
+            "duration_auto": False,
+            "default_seed": -1,
+            "output_format": "mp4",
+            "return_last_frame": False,
             "generate_audio": True,
             "watermark": False,
             "offline_inference": False,
@@ -119,7 +123,7 @@ class ConfigStore:
             "window_height": 800,
             "window_x": -1,  # -1 表示居中
             "window_y": -1,
-            "ui_theme": "default_light",
+            "ui_theme": "graphite",
             "sidebar_collapsed": False,
             "window_maximized": False
         }

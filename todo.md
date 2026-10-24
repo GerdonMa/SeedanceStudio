@@ -309,6 +309,78 @@
 
 ---
 
+## P10 — 适配 Seedance 2.5 / 模型感知参数体系（2026-10-24 ✅）
+
+> **背景**：对照字节跳动火山方舟最新官方文档（Seedance 2.5 教程 2026-10-19 版 + 创建任务 API），项目原实现的参数体系落后：模型列表缺 2.5/mini、时长/分辨率/宽高比校验对所有模型一刀切、duration=-1 智能时长与 ratio=adaptive 未支持、seed/输出格式/尾帧返回未下发、离线推理开关对所有 Seedance 2.x 实为无效参数、图片首尾帧 role 不可用、平台任务列表 API 未接入。
+
+### 领域层（模型能力表单一事实来源）
+- [x] 新建 `domain/model_capabilities.py`：`ModelCapability` 能力表 + `get_capability()`（未知模型宽松回退，API 端强校验兜底）
+- [x] `domain/enums.py`：ModelType 新增 `SEEDANCE_25`（doubao-seedance-2-5-260628）、`MINI`（doubao-seedance-2-0-mini-260615）
+- [x] `domain/entities.py`：MediaItem 新增 `role`（reference_image/first_frame/last_frame）；TaskRequest 新增 `seed`/`output_format`/`return_last_frame`；TaskResult 新增 `last_frame_url`/`total_tokens`/`model`/`created_at`
+- [x] `domain/interfaces.py`：IApiClient 新增 `list_tasks()`（平台最近 7 天任务）
+- [x] 四个 TaskBuilder 全部模型感知化：分辨率/宽高比/时长/素材上限按能力表校验；duration=-1 合法；2.5 编辑任务自动纠正 ratio=adaptive+duration=-1、延长/首尾帧任务自动纠正 ratio=adaptive；2.5 支持纯音频参考、2.0 仅尾帧报错；首尾帧与参考图互斥校验；多模态提示词改为可选
+
+### 基础设施层 / 应用层
+- [x] `ark_api_client.py`：下发 seed/output_format(mov 仅 2.5)/return_last_frame/omni_reference_task_type(2.5 edit/extend)；图片按 item.role 下发；空提示词不发 text 条目；service_tier=flex 仅在模型 supports_flex 时下发（当前 2.x 全不支持）；get_task 解析 last_frame_url/total_tokens/model/created_at（未知状态记 WARNING）；实现 `list_tasks()`（SDK `tasks.list(page_num, page_size)`）
+- [x] `task_usecase.py`：repo.save 失败降级 WARNING 不丢任务；query_task 查询结果回写 repo；新增 `sync_recent_tasks()` 平台任务同步（本地缺失补录 + 状态漂移修正）
+
+### UI 层
+- [x] `page_create.py`：模型下拉来自能力表（4 模型，默认 2.5）；模型切换联动重建分辨率/宽高比/时长范围/输出格式选项、隐藏不支持的离线推理开关、同步素材上限；任务类型×模型联动锁定（2.5 编辑/延长锁 adaptive、编辑锁智能时长）；新控件：智能时长/随机种子/输出格式/返回尾帧（全部接入偏好持久化）；multimodal_ref 允许空提示词
+- [x] `media_upload_widget.py`：`set_model()` 动态素材上限（2.5 图30/视频10/音频10）；图片条目角色下拉（参考图/首帧/尾帧）
+- [x] `page_task_list.py`：「同步平台任务」按钮（成功 Toast 报告新增数量，防连点）
+
+### 偏好持久化
+- [x] 新增 key：`default_seed`(-1)、`output_format`("mp4")、`return_last_frame`(False)、`duration_auto`(False)；`default_model` 默认值升级为 2.5（老用户配置不受影响）
+
+### 测试（强制流程 1.1~1.5 全部通过 ✅）
+- [x] 导入完整性 + 模块构造 + 行为逻辑（附录 A + P10 断言）+ GUI offscreen 启动 + 层间依赖 grep（三项零命中）
+- [x] pytest 54 通过（更新 2 个旧断言：-1 智能时长合法、fast 不支持 1080p）
+- [x] E2E smoke：UI 锁定 → builder 纠正 → API extra_body 断言（omni_reference_task_type=edit）
+
+---
+
+## P11 — Graphite 工作台 UI 重构（2026-10-24 ✅）
+
+> **背景**：用户反馈瑞士风格观感不佳，要求不拘泥原布局、打造有正式感的桌面软件界面。经代码审计 + 真实渲染截图 + 视觉模型多轮评审迭代。
+
+### 新增
+- [x] `themes/builtin/graphite.py`：Graphite 深灰蓝专业控制台主题（分层面板/hairline/专业蓝 #4D7CFE，卡片化 QGroupBox，全组件 QSS 覆盖），设为新默认主题
+- [x] `ui/widgets/page_header.py`：统一页头（眉题+大标题+副标题+右侧动作区），三页复用
+- [x] `ui/widgets/segmented_control.py`：互斥分段控件（水平分段条/垂直列表两形态）
+- [x] `ui/widgets/pro_icons.py`：QPainter 线性图标集（1.4px 圆帽描边：创建/任务/设置/关于/刷新/同步/素材）
+
+### 重构
+- [x] `main_window.py`：专业侧边栏（品牌区 S 标识 + 工作区/系统分组 + 任务运行计数徽章[订阅 EventBus 自动刷新]）；页序调整为 创建/任务/设置；新增 `page_switch_requested` 导航信号
+- [x] `page_create.py`：两栏工作台（左栏 320px 参数面板：模型+能力徽章/任务类型垂直分段/画面/高级；右栏：提示词编辑器+字数统计+素材+动作条摘要+大按钮）；创建成功改 Toast 通知
+- [x] `page_task_list.py`：统计卡片行（进行中/已完成/失败，>0 着色）+ 专业表格（46px 行高/无网格线/● 状态点）+ 空状态视图（图标+去创建按钮跨页导航）
+- [x] `page_settings.py`：统一页头
+
+### 测试（全部通过 ✅）
+- [x] 视觉评审 3 轮（截图→视觉模型分析→改进：提示词框加高/空态视图/统计着色/分段控件 value-label 顺序 bug 修复）
+- [x] pytest 54 通过；GUI smoke；层间依赖零违规；主题切换压力（graphite/marathon/swiss）
+- [x] testing_rules P9 侧边栏断言更新（200→232，折叠已移除）
+
+---
+
+## P12 — 主题精简 / 品牌图标 / 任务预览图 / 播放器重写（2026-10-24 ✅）
+
+- [x] **主题精简**：删除 default_light/default_dark/marathon 三个内置主题，仅保留 graphite（默认）+ swiss；`ThemeRegistry._default_id`/`ThemeContext`/MainWindow 回退链全部指向 graphite；旧配置自动迁移；theme_loader 静态 import 同步精简
+- [x] **应用品牌图标**：新增 `ui/widgets/app_icon.py` 程序化绘制（蓝渐变圆角方块 + 白色圆角播放三角，与侧边栏品牌区同语言，16~256 八档尺寸）；main.py setWindowIcon 替换旧 app.ico（任务栏/标题栏生效）
+- [x] **任务预览图**：新增 `ui/widgets/thumbnail_service.py`（QMediaPlayer+QVideoSink 抓视频帧 → 缓存 `%APPDATA%/SeedanceStudio/thumbs/{task_id}.png`，串行队列 + 8 秒超时兜底 + 失败去重）；任务表格新增「预览」列（96×54 缩略图，未完成显示灰色胶片占位，抓帧完成信号驱动更新）
+- [x] **视频预览窗重写**：修复"打开黑屏"（补 play() 自动播放）；新增播放控制条（播放/暂停、可拖动进度条、mm:ss 时间、音量滑块）；URL 过期/网络错误显示友好提示；信息卡片显示模型/Token/生成时间；下载默认文件名带任务 ID（不再覆盖）；多预览窗实例持有 + WA_DeleteOnClose 防互相挤掉
+- [x] 测试：pytest 54 通过；层间依赖/主题残留零命中；offscreen 冒烟（图标/双主题/缩略图服务/播放器构造/7 列表格/旧主题迁移）
+
+---
+
+## P13 — 瑞士风柔化 + 素材辨识度重构（2026-10-24 ✅）
+
+- [x] **瑞士风纸灰版**：纯白底 → 暖纸灰 #EAE9E4（输入面 #F6F5F1），纯黑文字/粗线 → 深炭 #2A2B31/#34353C，瑞士红微降饱和 #CE1124；保留粗顶线/网格/hover 反色设计语言，消除刺眼感
+- [x] **素材条目辨识度**：图片卡片左上角**编号徽章**（参考图按序编号"1/2/3…"，直接对应提示词 [图n] 引用；首帧/尾帧角色显示蓝"首"/橙"尾"色徽，不占编号）；缩略图放大至 140×100 且**点击弹出原图查看窗**；卡片显示文件名 + 分辨率（如 1024×1024）；role 切换后自动重排编号；恢复素材区横向滚动（此前被禁用，2.5 的 30 张图会溢出不可见）
+- [x] **主题补样式**：graphite/swiss 补齐素材卡片 QSS（mediaItemWidget/mediaThumbBox/dropZone 等，原样式随 P12 删除的旧主题丢失）
+- [x] 测试：pytest 54 通过；徽章编号/角色联动/双主题切换断言；真实素材（4 图+1 视频含尾帧角色）截图视觉验证
+
+---
+
 ## 注意事项（AI 开发时必读）
 
 1. **严禁在子线程直接操作 UI 控件**，所有跨线程通信通过 EventBus Signal 完成

@@ -561,6 +561,8 @@ class AssetPickerWidget(QWidget):
 | 37 | 同一文件内重复 import 同一模块 | `ui/widgets/media_upload_widget.py:23,25`、`ui/main_window.py:28,30` | 合并重复的 import 语句，每个模块只 import 一次。 |
 | 38 | import 了未使用的类 | `ui/main_window.py:15` | `QPixmap` 被 import 但全文件未使用，删除未使用的 import。 |
 | 39 | PyInstaller 打包时直接覆盖 `dist/` 中的旧版本 exe，未加版本号后缀，导致历史发布版本丢失 | `seedance.spec:58` | `seedance.spec` 中 `name` 字段必须包含版本号，如 `name='SeedanceStudio-v1.1.0'`。每次发布时更新版本号，旧 exe 不会被覆盖。 |
+| 40 | 模型参数能力依赖单一二手信源/记忆，导致能力表写错（例：初期调研误判"2.5 不支持 4k"，且旧代码给所有 Seedance 2.x 下发无效的 `service_tier=flex`） | `domain/model_capabilities.py` | 模型能力必须以官方「模型教程页能力概述表」为准交叉验证后才写入能力表；能力数据唯一存放于 `domain/model_capabilities.py`，UI 选项/校验/下发逻辑一律经 `get_capability()` 读取，严禁在 builder/UI/API client 再散落模型分支判断。新模型上线只改能力表 + MODEL_ORDER 两处。 |
+| 41 | 给 API 下发模型不支持的参数（如 2.0 传 `output_format=mov`、所有 2.x 传 `service_tier=flex`），平台可能忽略或报错，且用户无从知晓 | `infrastructure/ark_api_client.py` | 下发前检查能力表（`supports_mov`/`supports_flex` 等），不支持就不下发该参数；UI 侧同步隐藏/禁用对应控件，让"不可用"在界面上可见。 |
 
 > **重要**：当 AI 发现新的错误时，必须在行 15 的记录表末尾追加一条新记录，确保后续 AI 会话不再重犯。修正已有错误的 commit 消息中标注 `(fixes pitfall #N)`。
 

@@ -42,6 +42,21 @@ class IApiClient(ABC):
         pass
     
     @abstractmethod
+    def list_tasks(self, page_num: int = 1, page_size: int = 20) -> list[TaskResult]:
+        """
+        查询平台上最近 7 天内的视频生成任务列表（用于本地任务恢复/同步）。
+
+        Args:
+            page_num: 页码（1~500）
+            page_size: 每页数量（1~500）
+        Returns:
+            list[TaskResult]: 任务结果列表（含 model / created_at）
+        Raises:
+            ApiError: API 调用失败
+        """
+        pass
+
+    @abstractmethod
     def cancel_task(self, task_id: str) -> None:
         """
         取消任务。

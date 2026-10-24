@@ -531,6 +531,85 @@ aw.add_asset('test_asset')
 aw.stop()
 print('[PASS] AssetPollingWorker add/stop')
 
+# ===== P10 模型能力表与模型感知校验测试 =====
+from domain.model_capabilities import get_capability, MODEL_ORDER
+
+cap25 = get_capability('doubao-seedance-2-5-260628')
+assert cap25.duration_max == 30 and cap25.max_images == 30 and cap25.supports_mov
+assert cap25.supports_audio_only and not cap25.supports_flex
+cap20 = get_capability('doubao-seedance-2-0-260128')
+assert '4k' in cap20.resolutions and cap20.duration_max == 15
+capfast = get_capability('doubao-seedance-2-0-fast-260128')
+assert '1080p' not in capfast.resolutions
+assert len(MODEL_ORDER) == 4
+print('[PASS] ModelCapabilities table')
+
+# 模型感知校验：2.5 可 30 秒 + adaptive + mov；2.0 无 mov；fast 无 1080p
+t2v = TaskBuilderFactory.get('text_to_video')
+r = t2v.build(model='doubao-seedance-2-5-260628', prompt='cat',
+              resolution='1080p', aspect_ratio='adaptive', duration=30,
+              seed=42, output_format='mov', return_last_frame=True)
+assert r.duration == 30 and r.output_format == 'mov' and r.seed == 42
+for bad in [
+    dict(model='doubao-seedance-2-0-fast-260128', prompt='c', resolution='1080p', aspect_ratio='16:9', duration=5),
+    dict(model='doubao-seedance-2-0-260128', prompt='c', resolution='720p', aspect_ratio='16:9', duration=5, output_format='mov'),
+    dict(model='doubao-seedance-2-5-260628', prompt='c', resolution='720p', aspect_ratio='16:9', duration=31),
+    dict(model='doubao-seedance-2-0-260128', prompt='c', resolution='720p', aspect_ratio='16:9', duration=5, seed=-2),
+]:
+    try:
+        t2v.build(**bad)
+        assert False, f'should fail: {bad}'
+    except ValidationError:
+        pass
+assert t2v.build(model='doubao-seedance-2-0-260128', prompt='c', duration=-1).duration == -1
+print('[PASS] Model-aware builder validation')
+
+# 2.5 编辑/延长任务自动纠正 + 尾帧/纯音频规则
+evb = TaskBuilderFactory.get('edit_video')
+vid = [MediaItem(type=MediaType.VIDEO, url='http://e.com/v.mp4')]
+r3 = evb.build(model='doubao-seedance-2-5-260628', prompt='edit', media_items=vid,
+               aspect_ratio='16:9', duration=10)
+assert r3.aspect_ratio == 'adaptive' and r3.duration == -1
+r4 = evb.build(model='doubao-seedance-2-0-260128', prompt='edit', media_items=vid,
+               aspect_ratio='16:9', duration=10)
+assert r4.aspect_ratio == '16:9' and r4.duration == 10
+xvb = TaskBuilderFactory.get('extend_video')
+r5 = xvb.build(model='doubao-seedance-2-5-260628', prompt='ext', media_items=vid,
+               aspect_ratio='16:9')
+assert r5.aspect_ratio == 'adaptive'
+mrb = TaskBuilderFactory.get('multimodal_ref')
+last_only = [MediaItem(type=MediaType.IMAGE, url='http://e.com/i.png', role='last_frame')]
+mrb.build(model='doubao-seedance-2-5-260628', prompt='', media_items=last_only)  # 2.5 仅尾帧 OK
+try:
+    mrb.build(model='doubao-seedance-2-0-260128', prompt='', media_items=last_only)
+    assert False
+except ValidationError:
+    pass  # 2.0 尾帧必须与首帧成对
+audio_only = [MediaItem(type=MediaType.AUDIO, url='http://e.com/a.mp3')]
+mrb.build(model='doubao-seedance-2-5-260628', prompt='song', media_items=audio_only)  # 2.5 纯音频 OK
+print('[PASS] P10 task-type locks & frame roles')
+
+# ArkApiClient 新参数下发（mock）
+from unittest.mock import MagicMock, patch
+from infrastructure.ark_api_client import ArkApiClient
+api = ArkApiClient(cs, logging.getLogger('test'))
+req_edit = TaskRequest(
+    model='doubao-seedance-2-5-260628', task_type='edit_video', prompt='夜景',
+    media_items=vid, aspect_ratio='adaptive', duration=-1,
+    seed=42, output_format='mov', return_last_frame=True,
+)
+mock_client = MagicMock()
+mock_client.content_generation.tasks.create.return_value = MagicMock(id='mt')
+with patch.object(ArkApiClient, '_get_client', return_value=mock_client):
+    assert api.create_task(req_edit) == 'mt'
+    eb10 = mock_client.content_generation.tasks.create.call_args.kwargs['extra_body']
+    assert eb10['seed'] == 42 and eb10['output_format'] == 'mov'
+    assert eb10['return_last_frame'] is True
+    assert eb10['omni_reference_task_type'] == 'edit'
+    assert 'service_tier' not in eb10  # 所有 2.x 不支持 flex
+assert hasattr(api, 'list_tasks')
+print('[PASS] ArkApiClient P10 extra_body')
+
 print()
 print('*** ALL BEHAVIOR TESTS PASSED ***')
 ```
@@ -565,12 +644,9 @@ print('[PASS] MainWindow shortcuts registered')
 assert hasattr(MainWindow, 'nativeEvent')
 print('[PASS] MainWindow.nativeEvent present')
 
-# 侧边栏折叠/展开
-assert hasattr(window, '_toggle_sidebar')
-assert hasattr(window, '_expand_sidebar')
-assert hasattr(window, '_collapse_sidebar')
-assert window._sidebar.width() == 200  # SIDEBAR_EXPANDED
-print('[PASS] Sidebar default expanded width=200')
+# 侧边栏固定宽度（P11 重构后 SIDEBAR_EXPANDED=232，折叠功能已简化移除）
+assert window._sidebar.width() == 232  # SIDEBAR_EXPANDED
+print('[PASS] Sidebar width=232')
 
 # 菜单栏已移除
 assert not hasattr(window, '_setup_menu_bar')

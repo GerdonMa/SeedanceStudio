@@ -22,3 +22,9 @@ config.json.bak
 # OS
 .DS_Store
 Thumbs.db
+
+# Local test assets (video/image samples, not source)
+sd2测试片/
+
+# AI tool workspace
+.kilo/

@@ -1,6 +1,6 @@
 # Seedance Studio — Windows 11 桌面软件规划文档（v3）
 
-> **Version**: 1.0  |  **Last Updated**: 2026-05-08  |  **Status**: P0~P9 完成 ✅
+> **Version**: 1.3.0  |  **Last Updated**: 2026-10-24  |  **Status**: P0~P10 完成 ✅
 
 ---
 
@@ -209,14 +209,16 @@ class ArkApiClient(IApiClient):
 ### 4.2 任务创建模块
 
 #### 基础设置
-- 选择模型：
-  - `doubao-seedance-2-0-260128`（高质量）
-  - `doubao-seedance-2-0-fast-260128`（快速/低成本）
+- 选择模型（P10：列表来自 `domain/model_capabilities.py` 能力表，新装默认 2.5）：
+  - `doubao-seedance-2-5-260628`（旗舰：4~30 秒、图30/视频10/音频10、mov 输出、纯音频参考）
+  - `doubao-seedance-2-0-260128`（高质量，支持 4k）
+  - `doubao-seedance-2-0-fast-260128`（快速，仅 480p/720p）
+  - `doubao-seedance-2-0-mini-260615`（低成本，仅 480p/720p）
 - 选择任务类型（切换后动态加载对应 TaskBuilder 的表单）：
   - 文生视频
-  - 多模态参考（图片/视频/音频组合）
-  - 编辑视频
-  - 延长视频
+  - 多模态参考（图片/视频/音频组合；图片可指定首帧/尾帧角色）
+  - 编辑视频（2.5 自动锁定 adaptive + 智能时长，下发 omni_reference_task_type=edit）
+  - 延长视频（2.5 自动锁定 adaptive，下发 omni_reference_task_type=extend）
 
 #### 提示词输入
 - 大文本框，支持多行输入
@@ -228,16 +230,19 @@ class ArkApiClient(IApiClient):
 - **普通模式**：图片拖拽上传最多 9 张 / 视频最多 3 个 / 音频最多 3 个，支持公网 URL 输入
 - **资产库模式**：切换为资产 ID 输入框 + 「从资产库选择」按钮，文件上传控件隐藏
 
-#### 输出参数设置
+#### 输出参数设置（P10：全部按模型能力联动）
 | 参数 | 选项 |
 |------|------|
-| 分辨率 | 480p / 720p / 1080p（fast 版仅 480p/720p）|
-| 宽高比 | 21:9 / 16:9 / 4:3 / 1:1 / 3:4 / 9:16 / adaptive |
-| 时长 | 4~15 秒（滑块 + 数字输入） |
+| 分辨率 | 按模型：2.5=480p/720p/1080p；2.0=480p/720p/1080p/4k；fast/mini=480p/720p |
+| 宽高比 | 21:9 / 16:9 / 4:3 / 1:1 / 3:4 / 9:16 / adaptive（自适应） |
+| 时长 | 按模型 4~15 或 4~30 秒（滑块）；「智能时长」勾选后传 duration=-1 由模型自动决定 |
+| 随机种子 | -1（随机）~ 2^32-1 |
+| 输出格式 | mp4 / mov（mov 仅 2.5） |
+| 返回尾帧图 | 开关（return_last_frame，连续生成多段视频用） |
 | 生成音频 | 开关 |
 | 水印 | 开关 |
-| 联网搜索 | 开关（仅纯文本输入时可用） |
-| 离线推理 | 开关（service_tier: flex） |
+| 联网搜索 | 开关 |
+| 离线推理 | 隐藏（官方：所有 Seedance 2.x 均不支持 flex，能力表 supports_flex 全 False） |
 
 ### 4.3 任务管理模块
 - 任务列表（表格视图）：任务ID、模型、创建时间、状态、操作
@@ -314,9 +319,13 @@ UI 订阅事件，更新资产列表状态，显示审核结果
 | 默认分辨率 | `default_resolution` | `720p` |
 | 默认宽高比 | `default_aspect_ratio` | `16:9` |
 | 默认时长（秒） | `default_duration` | `5` |
+| 智能时长开关 | `duration_auto` | `false` |
+| 随机种子 | `default_seed` | `-1` |
+| 输出格式 | `output_format` | `mp4` |
+| 返回尾帧图 | `return_last_frame` | `false` |
 | 生成音频开关 | `generate_audio` | `true` |
 | 水印开关 | `watermark` | `false` |
-| 离线推理开关 | `offline_inference` | `false` |
+| 离线推理开关 | `offline_inference` | `false`（当前模型均不支持，UI 隐藏） |
 | 联网搜索开关 | `web_search` | `false` |
 | 视频下载路径 | `download_path` | 用户桌面 |
 | 窗口宽度 | `window_width` | `1200` |
@@ -415,6 +424,7 @@ seedance-studio/
 ├── domain/                           # 领域层（纯 Python，无框架依赖，可独立单元测试）
 │   ├── entities.py                   # Task, MediaItem, TaskRequest, TaskResult 数据类
 │   ├── enums.py                      # TaskStatus, MediaType, ModelType, TaskType 枚举
+│   ├── model_capabilities.py         # 模型能力表（P10：分辨率/时长/素材上限/特性开关单一事实来源）
 │   ├── interfaces.py                 # IApiClient, ITaskRepository, IAssetRepository 接口
 │   └── task_builders/                # 各任务类型请求构建器（插件式扩展点）
 │       ├── base.py                   # ITaskBuilder 接口 + TaskBuilderFactory
@@ -559,6 +569,7 @@ UI 订阅事件，自动刷新任务列表 + 弹出预览
 | P7 | 深色主题 + 界面打磨 + PyInstaller 打包 | 锦上添花 |
 | P8 | UI 主题系统：可扩展主题包架构 + Marathon 深空主题 | 锦上添花 |
 | P9 | UI 精细化与完成度打磨：自定义窗口框架 + 通知系统 + 侧边栏折叠 | 已完成 ✅ |
+| P10 | 适配 Seedance 2.5：模型能力表 + 模型感知校验/UI 联动 + 首尾帧 + 智能时长 + 平台任务同步 | 已完成 ✅ |
 
 ---
 

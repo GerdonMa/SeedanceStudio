@@ -1,15 +1,18 @@
 # Seedance Studio
 
-> 基于火山引擎 Doubao Seedance 2.0 系列 API 的桌面视频生成工具 — 无需编写代码，即可完成 AI 视频生成、编辑与延长。
+> 基于火山引擎 Doubao Seedance 2.0 / 2.5 系列 API 的桌面视频生成工具 — 无需编写代码，即可完成 AI 视频生成、编辑与延长。
 
 ## 功能概览
 
 | 模块 | 说明 |
 |------|------|
 | **文生视频** | 输入提示词，选择模型和参数，一键生成视频 |
-| **多模态参考** | 上传图片/视频/音频素材，结合提示词生成定制化视频 |
-| **编辑视频** | 对已有视频进行 AI 编辑修改 |
+| **多模态参考** | 上传图片/视频/音频素材，结合提示词生成定制化视频；图片可指定首帧/尾帧角色 |
+| **编辑视频** | 对已有视频进行 AI 编辑修改（Seedance 2.5 自动锁定 adaptive + 智能时长） |
 | **延长视频** | 基于已有视频内容，智能延长生成 |
+| **模型能力联动** | 4 个模型（2.5 / 2.0 / 2.0-fast / 2.0-mini），分辨率/宽高比/时长/素材上限按模型能力表自动联动 |
+| **智能时长 & 种子** | duration=-1 模型自动决定时长；随机种子可复现类似结果；2.5 支持 mov 输出与尾帧图返回 |
+| **平台任务同步** | 一键拉取方舟平台最近 7 天任务，恢复/补录本地历史 |
 | **任务管理** | 任务列表、状态追踪、自动轮询、历史持久化、视频内嵌预览 |
 | **资产库模式** | 对接火山引擎资产管理 API，上传/审核/引用授权素材 |
 | **提示词助手** | 内置 Seedance 2.0 提示词公式速查 + 模板库（≥10 条） |
@@ -74,6 +77,7 @@ seedance-studio/
 ├── domain/                           # 领域层（纯 Python，无框架依赖，可独立单元测试）
 │   ├── entities.py                   # Task, MediaItem, TaskRequest, TaskResult 数据类
 │   ├── enums.py                      # TaskStatus, MediaType, ModelType, TaskType 枚举
+│   ├── model_capabilities.py         # 模型能力表（P10：参数能力单一事实来源）
 │   ├── interfaces.py                 # IApiClient, ITaskRepository, IAssetRepository 抽象接口
 │   └── task_builders/                # 任务请求构建器（插件式扩展点）
 │       ├── base.py                   # ITaskBuilder 接口 + TaskBuilderFactory 工厂
@@ -234,4 +238,4 @@ MIT License
 
 ---
 
-Made with PyQt6 ❖ Powered by Doubao Seedance 2.0
+Made with PyQt6 ❖ Powered by Doubao Seedance 2.0 / 2.5

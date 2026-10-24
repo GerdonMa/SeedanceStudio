@@ -13,6 +13,7 @@ from pathlib import Path
 from volcenginesdkarkruntime import Ark
 
 from domain.interfaces import IApiClient
+from domain.model_capabilities import get_capability
 from domain.entities import TaskRequest, TaskResult
 from domain.enums import TaskStatus
 from core.exceptions import ApiError
@@ -76,9 +77,9 @@ class ArkApiClient(IApiClient):
             # 构建 content 数组（官方 API 格式）
             content = []
             
-            # 文本提示词
-            text_entry = {"type": "text", "text": request.prompt}
-            content.append(text_entry)
+            # 文本提示词（多模态场景下官方允许省略，仅非空时下发）
+            if request.prompt and request.prompt.strip():
+                content.append({"type": "text", "text": request.prompt})
             
             # 添加媒体素材
             if request.media_items:
@@ -89,7 +90,7 @@ class ArkApiClient(IApiClient):
                         content.append({
                             "type": "image_url",
                             "image_url": {"url": media_url},
-                            "role": "reference_image",
+                            "role": item.role or "reference_image",
                         })
                     elif item.type.value == "video":
                         content.append({
@@ -117,13 +118,34 @@ class ArkApiClient(IApiClient):
             
             extra_body["generate_audio"] = request.generate_audio
             extra_body["ratio"] = request.aspect_ratio
-            extra_body["duration"] = request.duration
+            extra_body["duration"] = request.duration  # -1 原样下发（智能时长）
             extra_body["watermark"] = request.watermark
+            
+            # 随机种子（-1 表示随机，官方允许显式下发）
+            if request.seed is not None:
+                extra_body["seed"] = request.seed
+            
+            # 输出格式（mp4 为默认，仅支持 mov 的模型且显式要求 mov 时下发）
+            capability = get_capability(request.model)
+            if request.output_format == "mov" and capability.supports_mov:
+                extra_body["output_format"] = "mov"
+            
+            # 尾帧图返回（连续生成用）
+            if request.return_last_frame:
+                extra_body["return_last_frame"] = True
+            
+            # Seedance 2.5 编辑/延长任务类型声明
+            if request.model.startswith("doubao-seedance-2-5"):
+                if request.task_type == "edit_video":
+                    extra_body["omni_reference_task_type"] = "edit"
+                elif request.task_type == "extend_video":
+                    extra_body["omni_reference_task_type"] = "extend"
             
             if request.web_search:
                 extra_body["tools"] = [{"type": "web_search"}]
             
-            if request.offline_inference:
+            # 离线推理（仅支持 flex 的模型才下发，避免无效参数）
+            if request.offline_inference and capability.supports_flex:
                 extra_body["service_tier"] = "flex"
             
             if extra_body:
@@ -147,6 +169,78 @@ class ArkApiClient(IApiClient):
             
             raise ApiError(code=error_code, message=error_msg) from e
     
+    def _parse_task_response(self, response, task_id: str) -> TaskResult:
+        """
+        将 SDK 任务响应对象解析为 TaskResult（get_task / list_tasks 共用）。
+
+        Args:
+            response: SDK 任务响应对象（单个任务）
+            task_id: 任务 ID（list 场景取 response.id，此处由调用方传入）
+        Returns:
+            TaskResult: 任务结果对象
+        """
+        # 解析状态（未知状态记 warning 后按 FAILED 处理）
+        status_map = {
+            "queued": TaskStatus.QUEUED,
+            "running": TaskStatus.RUNNING,
+            "cancelled": TaskStatus.CANCELLED,
+            "succeeded": TaskStatus.SUCCEEDED,
+            "failed": TaskStatus.FAILED,
+            "expired": TaskStatus.EXPIRED,
+        }
+        raw_status = getattr(response, "status", None)
+        status = status_map.get(raw_status)
+        if status is None:
+            self._logger.warning(
+                f"Unknown task status from API: task_id={task_id}, status={raw_status!r}, "
+                f"mapped to FAILED"
+            )
+            status = TaskStatus.FAILED
+        
+        # 解析嵌套字段（官方 API 结构）
+        video_url = None
+        last_frame_url = None
+        if hasattr(response, "content") and response.content:
+            video_url = getattr(response.content, "video_url", None)
+            last_frame_url = getattr(response.content, "last_frame_url", None)
+        
+        error_message = None
+        if hasattr(response, "error") and response.error:
+            error_code = getattr(response.error, "code", "")
+            error_msg = getattr(response.error, "message", "")
+            if error_code or error_msg:
+                error_message = f"[{error_code}] {error_msg}" if error_code else error_msg
+        
+        token_usage = None
+        total_tokens = None
+        if hasattr(response, "usage") and response.usage:
+            token_usage = getattr(response.usage, "completion_tokens", None)
+            total_tokens = getattr(response.usage, "total_tokens", None)
+        
+        model = getattr(response, "model", None)
+        created_at = getattr(response, "created_at", None)
+        
+        generation_time = None
+        if hasattr(response, "updated_at") and hasattr(response, "created_at"):
+            try:
+                generation_time = response.updated_at - response.created_at
+            except TypeError:
+                generation_time = None
+        
+        # 构建结果对象
+        return TaskResult(
+            task_id=task_id,
+            status=status,
+            video_url=video_url,
+            last_frame_url=last_frame_url,
+            error_message=error_message,
+            token_usage=token_usage,
+            total_tokens=total_tokens,
+            generation_time=generation_time,
+            model=model,
+            created_at=created_at,
+        )
+    
     def get_task(self, task_id: str) -> TaskResult:
         """
         查询任务状态和结果。
@@ -164,53 +258,59 @@ class ArkApiClient(IApiClient):
             client = self._get_client()
             response = client.content_generation.tasks.get(task_id=task_id)
             
-            # 解析状态
-            status_map = {
-                "queued": TaskStatus.QUEUED,
-                "running": TaskStatus.RUNNING,
-                "cancelled": TaskStatus.CANCELLED,
-                "succeeded": TaskStatus.SUCCEEDED,
-                "failed": TaskStatus.FAILED,
-                "expired": TaskStatus.EXPIRED,
-            }
-            status = status_map.get(response.status, TaskStatus.FAILED)
+            result = self._parse_task_response(response, task_id)
             
-            # 解析嵌套字段（官方 API 结构）
-            video_url = None
-            if hasattr(response, "content") and response.content:
-                video_url = getattr(response.content, "video_url", None)
-            
-            error_message = None
-            if hasattr(response, "error") and response.error:
-                error_code = getattr(response.error, "code", "")
-                error_msg = getattr(response.error, "message", "")
-                if error_code or error_msg:
-                    error_message = f"[{error_code}] {error_msg}" if error_code else error_msg
-            
-            token_usage = None
-            if hasattr(response, "usage") and response.usage:
-                token_usage = getattr(response.usage, "completion_tokens", None)
-            
-            generation_time = None
-            if hasattr(response, "updated_at") and hasattr(response, "created_at"):
-                generation_time = response.updated_at - response.created_at
-            
-            # 构建结果对象
-            result = TaskResult(
-                task_id=task_id,
-                status=status,
-                video_url=video_url,
-                error_message=error_message,
-                token_usage=token_usage,
-                generation_time=generation_time,
-            )
-            
-            self._logger.info(f"Task query result: task_id={task_id}, status={status.value}")
+            self._logger.info(f"Task query result: task_id={task_id}, status={result.status.value}")
             return result
             
         except Exception as e:
             error_msg = str(e)
             self._logger.error(f"Failed to query task {task_id}: {error_msg}", exc_info=True)
+            
+            error_code = "API_ERROR"
+            if hasattr(e, "status_code"):
+                error_code = str(e.status_code)
+            
+            raise ApiError(code=error_code, message=error_msg) from e
+    
+    def list_tasks(self, page_num: int = 1, page_size: int = 20) -> list[TaskResult]:
+        """
+        查询平台上最近 7 天内的视频生成任务列表。
+
+        Args:
+            page_num: 页码（1~500）
+            page_size: 每页数量（1~500）
+        Returns:
+            list[TaskResult]: 任务结果列表
+        Raises:
+            ApiError: API 调用失败
+        """
+        self._logger.info(f"Listing tasks: page_num={page_num}, page_size={page_size}")
+        
+        try:
+            client = self._get_client()
+            response = client.content_generation.tasks.list(
+                page_num=page_num, page_size=page_size
+            )
+            
+            results: list[TaskResult] = []
+            items = getattr(response, "items", None) or []
+            for item in items:
+                item_id = getattr(item, "id", None)
+                if not item_id:
+                    self._logger.warning("Skipped list item without id")
+                    continue
+                results.append(self._parse_task_response(item, item_id))
+            
+            self._logger.info(
+                f"Task list fetched: total={getattr(response, 'total', None)}, "
+                f"parsed={len(results)}"
+            )
+            return results
+            
+        except Exception as e:
+            error_msg = str(e)
+            self._logger.error(f"Failed to list tasks: {error_msg}", exc_info=True)
             
             error_code = "API_ERROR"
             if hasattr(e, "status_code"):

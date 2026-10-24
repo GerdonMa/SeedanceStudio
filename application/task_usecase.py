@@ -54,8 +54,14 @@ class TaskUseCase:
             self._event_bus.task_created.emit(task_id)
             
             # 如果 task_repo 已注入，持久化到本地存储
+            # （save 失败降级为 warning：API 已成功创建，不能因本地持久化失败丢失任务）
             if self._task_repo is not None:
-                self._task_repo.save(task)
+                try:
+                    self._task_repo.save(task)
+                except Exception as e:
+                    self._logger.warning(
+                        f"Failed to persist task {task_id} locally, continue: {e}"
+                    )
             
             self._logger.info(f"Task created: task_id={task_id}")
             return task
@@ -96,6 +102,22 @@ class TaskUseCase:
             # 发送状态更新事件
             self._event_bus.task_updated.emit(task_id, result.status.value)
             
+            # 持久化最新状态（失败仅 warning，不影响返回）
+            if self._task_repo is not None:
+                try:
+                    self._task_repo.update_status(
+                        task_id,
+                        result.status.value,
+                        video_url=result.video_url,
+                        error_message=result.error_message,
+                        token_usage=result.token_usage,
+                        generation_time=result.generation_time,
+                    )
+                except Exception as e:
+                    self._logger.warning(
+                        f"Failed to persist status for task {task_id}: {e}"
+                    )
+            
             if result.status == TaskStatus.SUCCEEDED:
                 self._event_bus.task_succeeded.emit(task_id, result.video_url or "")
             elif result.status == TaskStatus.FAILED:
@@ -120,6 +142,78 @@ class TaskUseCase:
         if self._task_repo is None:
             return []
         return self._task_repo.find_all()
+    
+    def sync_recent_tasks(self) -> int:
+        """
+        从平台同步最近 7 天内的任务到本地仓储。
+
+        调用 list_tasks 获取平台任务列表，对本地不存在的任务新建实体保存，
+        已存在的任务若状态有变化则同步更新。
+
+        注意：内部为同步 API 调用，应在 UI 主线程之外或调用方自行负责线程。
+
+        Returns:
+            int: 本次新增的本地任务数量
+        Raises:
+            ApiError: list_tasks 调用失败（由调用方处理）
+        """
+        self._logger.info("Syncing recent tasks from platform")
+        
+        if self._task_repo is None:
+            self._logger.warning("TaskRepo not injected, skip sync_recent_tasks")
+            return 0
+        
+        results = self._api_client.list_tasks(page_num=1, page_size=50)
+        
+        new_count = 0
+        for result in results:
+            existing = self._task_repo.find_by_id(result.task_id)
+            if existing is None:
+                # 本地不存在：构造 Task 实体保存（prompt 平台不回传，留空）
+                created_at = (
+                    datetime.fromtimestamp(result.created_at)
+                    if result.created_at
+                    else datetime.now()
+                )
+                task = Task(
+                    task_id=result.task_id,
+                    model=result.model or "",
+                    task_type="multimodal_ref",  # 平台列表不回传任务类型，占位
+                    prompt="",
+                    status=result.status,
+                    created_at=created_at,
+                    video_url=result.video_url,
+                    error_message=result.error_message,
+                    token_usage=result.token_usage,
+                    generation_time=result.generation_time,
+                )
+                try:
+                    self._task_repo.save(task)
+                    new_count += 1
+                except Exception as e:
+                    self._logger.warning(
+                        f"Failed to save synced task {result.task_id}: {e}"
+                    )
+            elif existing.status != result.status:
+                # 状态有变化：同步更新
+                try:
+                    self._task_repo.update_status(
+                        result.task_id,
+                        result.status.value,
+                        video_url=result.video_url,
+                        error_message=result.error_message,
+                        token_usage=result.token_usage,
+                        generation_time=result.generation_time,
+                    )
+                except Exception as e:
+                    self._logger.warning(
+                        f"Failed to update synced task {result.task_id}: {e}"
+                    )
+        
+        self._logger.info(
+            f"Sync recent tasks finished: fetched={len(results)}, new={new_count}"
+        )
+        return new_count
     
     def delete_task(self, task_id: str) -> None:
         """

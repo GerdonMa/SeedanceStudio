@@ -47,12 +47,33 @@ class TestTextToVideoBuilder(unittest.TestCase):
         self.assertIn("提示词", str(ctx.exception.errors))
 
     def test_build_invalid_duration_raises(self):
-        for d in [3, 16, 0, -1]:
+        # -1 为合法智能时长，不在非法列表中；4-15 之外报错（未知模型按宽松回退 4-15）
+        for d in [3, 16, 0]:
             with self.assertRaises(ValidationError):
                 self.builder.build(
                     model="test", prompt="猫", resolution="720p",
                     aspect_ratio="16:9", duration=d,
                 )
+
+    def test_build_duration_auto_and_model_aware(self):
+        # duration=-1 智能时长合法
+        request = self.builder.build(
+            model="doubao-seedance-2-0-260128", prompt="猫",
+            resolution="720p", aspect_ratio="16:9", duration=-1,
+        )
+        self.assertEqual(request.duration, -1)
+        # 2.5 支持 4~30 秒
+        request = self.builder.build(
+            model="doubao-seedance-2-5-260628", prompt="猫",
+            resolution="1080p", aspect_ratio="adaptive", duration=30,
+        )
+        self.assertEqual(request.duration, 30)
+        # 2.5 超过 30 秒报错
+        with self.assertRaises(ValidationError):
+            self.builder.build(
+                model="doubao-seedance-2-5-260628", prompt="猫",
+                resolution="720p", aspect_ratio="16:9", duration=31,
+            )
 
     def test_build_invalid_resolution_raises(self):
         with self.assertRaises(ValidationError):
@@ -69,10 +90,11 @@ class TestTextToVideoBuilder(unittest.TestCase):
             )
 
     def test_build_with_all_options(self):
+        # P10：分辨率按模型能力校验，fast 仅支持 480p/720p
         request = self.builder.build(
             model="doubao-seedance-2-0-fast-260128",
             prompt="测试",
-            resolution="1080p",
+            resolution="720p",
             aspect_ratio="21:9",
             duration=15,
             generate_audio=False,
@@ -80,13 +102,35 @@ class TestTextToVideoBuilder(unittest.TestCase):
             web_search=True,
             offline_inference=True,
         )
-        self.assertEqual(request.resolution, "1080p")
+        self.assertEqual(request.resolution, "720p")
         self.assertEqual(request.aspect_ratio, "21:9")
         self.assertEqual(request.duration, 15)
         self.assertFalse(request.generate_audio)
         self.assertTrue(request.watermark)
         self.assertTrue(request.web_search)
         self.assertTrue(request.offline_inference)
+
+    def test_build_with_p10_new_options(self):
+        request = self.builder.build(
+            model="doubao-seedance-2-5-260628",
+            prompt="测试",
+            resolution="1080p",
+            aspect_ratio="adaptive",
+            duration=-1,
+            seed=42,
+            output_format="mov",
+            return_last_frame=True,
+        )
+        self.assertEqual(request.seed, 42)
+        self.assertEqual(request.output_format, "mov")
+        self.assertTrue(request.return_last_frame)
+        # 2.0 不支持 mov
+        with self.assertRaises(ValidationError):
+            self.builder.build(
+                model="doubao-seedance-2-0-260128", prompt="测试",
+                resolution="720p", aspect_ratio="16:9", duration=5,
+                output_format="mov",
+            )
 
 
 class TestMultimodalRefBuilder(unittest.TestCase):

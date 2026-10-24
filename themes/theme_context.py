@@ -18,7 +18,7 @@ class ThemeContext:
     组件通过 get_color() 获取当前主题的颜色值。
     """
 
-    _current_theme_id: ClassVar[str] = "default_light"
+    _current_theme_id: ClassVar[str] = "graphite"
 
     @classmethod
     def set_current(cls, theme_id: str) -> None:

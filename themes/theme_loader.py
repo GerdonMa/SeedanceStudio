@@ -76,38 +76,28 @@ class ThemeLoader:
         themes: list[ThemeInfo] = []
 
         try:
-            from themes.builtin.default_light import (
+            from themes.builtin.graphite import (
                 THEME_MANIFEST as m, THEME_QSS as q, SIDEBAR_QSS as s,
             )
+            import themes.builtin.graphite as graphite_fx
             themes.append(ThemeInfo(
                 id=m["id"], name=m["name"], qss=q, sidebar_qss=s,
-                is_dark=m["is_dark"], manifest=m,
+                is_dark=m["is_dark"], manifest=m, fx_module=graphite_fx,
             ))
         except Exception as e:
-            self._logger.error(f"Failed to load builtin theme default_light: {e}")
+            self._logger.error(f"Failed to load builtin theme graphite: {e}")
 
         try:
-            from themes.builtin.default_dark import (
+            from themes.builtin.swiss import (
                 THEME_MANIFEST as m, THEME_QSS as q, SIDEBAR_QSS as s,
             )
+            import themes.builtin.swiss as swiss_fx
             themes.append(ThemeInfo(
                 id=m["id"], name=m["name"], qss=q, sidebar_qss=s,
-                is_dark=m["is_dark"], manifest=m,
+                is_dark=m["is_dark"], manifest=m, fx_module=swiss_fx,
             ))
         except Exception as e:
-            self._logger.error(f"Failed to load builtin theme default_dark: {e}")
-
-        try:
-            from themes.builtin.marathon.fx import (
-                THEME_MANIFEST as m, MARATHON_QSS as q, SIDEBAR_QSS as s,
-            )
-            import themes.builtin.marathon.fx as fx_mod
-            themes.append(ThemeInfo(
-                id=m["id"], name=m["name"], qss=q, sidebar_qss=s,
-                is_dark=m["is_dark"], manifest=m, fx_module=fx_mod,
-            ))
-        except Exception as e:
-            self._logger.error(f"Failed to load builtin theme marathon: {e}")
+            self._logger.error(f"Failed to load builtin theme swiss: {e}")
 
         self._logger.info(f"ThemeLoader: builtin → {len(themes)} themes loaded (static import)")
         return themes

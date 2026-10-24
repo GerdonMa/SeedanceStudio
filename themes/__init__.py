@@ -31,7 +31,7 @@ class ThemeRegistry:
     """
 
     _themes: ClassVar[dict[str, ThemeInfo]] = {}
-    _default_id: ClassVar[str] = "default_light"
+    _default_id: ClassVar[str] = "graphite"
 
     @classmethod
     def register(cls, theme: ThemeInfo) -> None:

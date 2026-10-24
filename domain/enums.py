@@ -28,8 +28,10 @@ class MediaType(str, Enum):
 
 class ModelType(str, Enum):
     """模型类型枚举"""
+    SEEDANCE_25 = "doubao-seedance-2-5-260628"
     STANDARD = "doubao-seedance-2-0-260128"
     FAST = "doubao-seedance-2-0-fast-260128"
+    MINI = "doubao-seedance-2-0-mini-260615"
 
 
 class TaskType(str, Enum):
