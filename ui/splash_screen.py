@@ -11,7 +11,7 @@ from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QTimer
 from PyQt6.QtGui import QFont
 
 APP_NAME = "Seedance Studio"
-APP_VERSION = "v1.2.1"
+APP_VERSION = "v1.3.0"
 
 
 class SplashScreen(QWidget):

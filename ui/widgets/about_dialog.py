@@ -14,7 +14,7 @@ from PyQt6.QtCore import Qt
 from themes.theme_context import ThemeContext
 
 
-APP_VERSION = "1.2.1"
+APP_VERSION = "1.3.0"
 
 _COPYRIGHT = "© 2025 GerdonMa. All rights reserved."
 

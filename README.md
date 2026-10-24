@@ -63,7 +63,7 @@ python main.py --no-frameless
 
 ```bash
 python -m PyInstaller --clean seedance.spec
-# 输出: dist/SeedanceStudio-v1.2.1.exe
+# 输出: dist/SeedanceStudio-v1.3.0.exe
 ```
 
 ## 项目结构

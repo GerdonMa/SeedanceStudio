@@ -3,7 +3,7 @@
 Seedance Studio PyInstaller 打包配置.
 
 使用方法: pyinstaller seedance.spec
-输出: dist/SeedanceStudio.exe
+输出: dist/SeedanceStudio-v1.3.0.exe
 """
 
 import sys
@@ -22,13 +22,11 @@ a = Analysis(
         'PyQt6.QtMultimediaWidgets',
         'sqlite3',
         'logging.handlers',
-        # Phase 8 主题系统（确保静态 import 的模块被 PyInstaller 收集）
+        # 主题系统（静态 import，显式列出确保被收集）
         'themes',
         'themes.theme_loader',
-        'themes.builtin',
-        'themes.builtin.default_light',
-        'themes.builtin.default_dark',
-        'themes.builtin.marathon.fx',
+        'themes.builtin.graphite',
+        'themes.builtin.swiss',
     ],
     hookspath=[],
     hooksconfig={},
@@ -55,7 +53,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='SeedanceStudio-v1.2.1',
+    name='SeedanceStudio-v1.3.0',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -79,5 +77,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='SeedanceStudio-v1.2.1',
+    name='SeedanceStudio-v1.3.0',
 )
